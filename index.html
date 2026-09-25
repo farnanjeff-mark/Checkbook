@@ -127,7 +127,6 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
     <p>Your records are saved in a folder on this computer. Nothing is sent over the internet.</p>
     <button class="btn primary hidden" id="btnReopen">Open my checkbook<small id="reopenName"></small></button>
     <button class="btn" id="btnPick">Choose a folder<small>Pick an existing checkbook folder, or an empty one to start new</small></button>
-    <button class="btn" id="btnSample">Try it with sample data<small>For testing. Nothing is saved.</small></button>
     <div id="startErr"></div>
   </div>
 </div>
@@ -338,7 +337,7 @@ window.addEventListener("beforeunload", e => { if (savePending) { e.preventDefau
 /* ---------- Start screen ---------- */
 (async function init() {
   if (!window.showDirectoryPicker) {
-    $("startErr").textContent = "This browser can't save to a folder. Open this file in Chrome or Edge. You can still try the sample.";
+    $("startErr").textContent = "This browser can't save to a folder. Open the checkbook in Chrome or Edge.";
     $("btnPick").disabled = true;
   }
   const h = await kvGet("dir");
@@ -352,7 +351,6 @@ $("btnPick").onclick = async () => {
   try { await openFolder(await showDirectoryPicker({mode: "readwrite", id: "checkbook"})); }
   catch (e) { if (e.name !== "AbortError") $("startErr").textContent = "Could not open that folder: " + e.message; }
 };
-$("btnSample").onclick = () => { db = sampleDb(); sample = true; startApp(); };
 
 function startApp() {
   $("start").classList.add("hidden");
@@ -360,6 +358,7 @@ function startApp() {
   curAcct = db.accounts[0]?.id || null;
   setStatus(sample ? "Nothing is saved" : "Saved");
   renderAll(); clearForm();
+  requestAnimationFrame(scrollToEnd);   // open at the newest entries
   if (!db.accounts.length) openAcctDialog();
 }
 
@@ -371,7 +370,7 @@ function renderSide() {
     const b = balanceOf(a.id);
     return `<button class="acct ${a.id === curAcct ? "on" : ""}" data-id="${a.id}"><span class="n">${esc(a.name)}</span><span class="b ${b < 0 ? "neg" : ""}">${money(b)}</span></button>`;
   }).join("");
-  document.querySelectorAll(".acct").forEach(b => b.onclick = () => { curAcct = b.dataset.id; clearForm(); renderAll(); });
+  document.querySelectorAll(".acct").forEach(b => b.onclick = () => { curAcct = b.dataset.id; clearForm(); renderAll(); scrollToEnd(); });
 }
 
 function catLabel(t) {
@@ -704,7 +703,7 @@ $("btnDelAcct").onclick = () => {
   db.transactions = db.transactions.filter(t => t.accountId !== a.id);
   db.accounts = db.accounts.filter(x => x.id !== a.id);
   curAcct = db.accounts[0]?.id || null;
-  save(); clearForm(); renderAll();
+  save(); clearForm(); renderAll(); scrollToEnd();
 };
 $("aCancel").onclick = () => $("dlgAcct").close();
 $("aOk").onclick = () => {
@@ -922,31 +921,6 @@ $("impGo").onclick = () => {
     <p class="impNote">Check that "Balance now" matches QuickBooks.</p>`;
 };
 
-/* ---------- Sample data (for testing only) ---------- */
-function sampleDb() {
-  const d = newDb(); const a = {id: uid(), name: "Farm Checking (sample)", payees: []}; d.accounts.push(a);
-  const cat = n => d.categories.find(c => c.name === n).id;
-  const add = (date, num, payee, memo, amount, status, splits) => {
-    d.transactions.push({id: uid(), accountId: a.id, seq: d.seq++, date, num, payee, memo, amount, status,
-      splits: splits || [{categoryId: null, memo: "", amount}]});
-    if (payee && !a.payees.includes(payee)) a.payees.push(payee);
-  };
-  const one = (n, amt) => [{categoryId: cat(n), memo: "", amount: amt}];
-  add("2026-08-01", "", "Opening Balance", "", 1250000, "R", one("Deposit", 1250000));
-  add("2026-08-04", "1701", "Central Commodities", "Feed", -173594, "R", one("Farm Expenses:Feed", -173594));
-  add("2026-08-06", "1702", "Shelter Insurance", "2020 Chevy", -28524, "R", one("Insurance:Auto", -28524));
-  add("2026-08-10", "", "Deposit", "Steer calves", 1864220, "R", one("Farm Income:Calves", 1864220));
-  add("2026-08-14", "1703", "Maryville Vet Clinic", "Fall shots", -64210, "R", one("Farm Expenses:Vet", -64210));
-  add("2026-08-20", "1704", "Farmers Co-op", "Feed and fencing", -50000, "c",
-    [{categoryId: cat("Farm Expenses:Feed"), memo: "Range cubes", amount: -40000}, {categoryId: cat("Farm Expenses:Fencing"), memo: "Wire and posts", amount: -10000}]);
-  add("2026-08-28", "1705", "Nodaway Valley Bank", "Revolving loan payment", -250000, "c",
-    [{categoryId: cat("Loan Payment:Revolving Loan"), memo: "Principal", amount: -212000}, {categoryId: cat("Loan Payment:Olins:Interest"), memo: "Interest", amount: -38000}]);
-  add("2026-09-02", "1706", "Vit-A-Zine", "Mineral", -77250, "c", one("Farm Expenses:Mineral", -77250));
-  add("2026-09-10", "", "Deposit", "Hay sold", 210000, "", one("Farm Income:Hay", 210000));
-  add("2026-09-15", "1707", "Evergy", "Barn electric", -18744, "", one("Farm Expenses:Electric", -18744));
-  add("2026-09-19", "1708", "Casey's", "Truck fuel", -9215, "", one("Farm Expenses:Fuel, Gasoline, and Oil", -9215));
-  return d;
-}
 </script>
 </body>
 </html>
