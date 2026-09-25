@@ -148,6 +148,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
       <div>
         <h2 id="acctName"></h2>
         <button class="linkbtn" id="btnRename">Rename account</button>
+        <button class="linkbtn" id="btnDelAcct" style="color:var(--red);margin-left:12px">Delete account</button>
       </div>
       <div class="stat">Balance<b id="stBal"></b></div>
       <div class="stat">Cleared balance<b id="stClr"></b></div>
@@ -692,6 +693,19 @@ function openAcctDialog(rename) {
 }
 $("btnAddAcct").onclick = () => openAcctDialog(false);
 $("btnRename").onclick = () => openAcctDialog(true);
+$("btnDelAcct").onclick = () => {
+  const a = acct(curAcct); if (!a) return;
+  const n = acctTxns(a.id).length;
+  const warn = n ? `"${a.name}" has ${n} transaction${n === 1 ? "" : "s"}, balance ${money(balanceOf(a.id))}. They will all be deleted.`
+                 : `"${a.name}" has no transactions.`;
+  const answer = prompt(`${warn}\n\nType YES to delete this account.`);
+  if (answer === null) return;
+  if (answer.trim().toUpperCase() !== "YES") return alert("Not deleted. You need to type YES to delete the account.");
+  db.transactions = db.transactions.filter(t => t.accountId !== a.id);
+  db.accounts = db.accounts.filter(x => x.id !== a.id);
+  curAcct = db.accounts[0]?.id || null;
+  save(); clearForm(); renderAll();
+};
 $("aCancel").onclick = () => $("dlgAcct").close();
 $("aOk").onclick = () => {
   const name = $("aName").value.trim();
