@@ -111,6 +111,54 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
 .impTable td,.impTable th{padding:5px 8px;border-bottom:1px solid var(--rule);text-align:left}
 .impTable th{color:var(--accent);font-size:12px;background:var(--headbg)}
 .impNote{font-size:13px;color:var(--muted);line-height:1.5;margin:6px 0}
+.pyWrap{display:grid;grid-template-columns:260px 1fr;gap:16px;height:62vh}
+.pyLeft{display:flex;flex-direction:column;min-height:0}
+#pySearch{padding:7px 10px;border:1px solid #B7C8D4;border-radius:6px;margin-bottom:8px}
+#pyList{flex:1;overflow:auto;border:1px solid var(--rule);border-radius:6px}
+.pyItem{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--rule);padding:7px 10px;font-size:14px;color:var(--ink)}
+.pyItem:nth-child(even){background:var(--ledger)}
+.pyItem:hover{background:#DCE9F5}
+.pyItem.on{background:var(--accent);color:#fff}
+.pyItem .c{font-size:12px;opacity:.75;white-space:nowrap}
+.pyRight{display:flex;flex-direction:column;min-height:0}
+.pyHead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.pyHead h4{margin:0;font-size:18px}
+.pyRange{margin:8px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px}
+.pyRange select{width:auto}
+.pyRange select,.pyRange input{padding:5px 8px;border:1px solid #B7C8D4;border-radius:5px}
+.pyTxWrap{flex:1;overflow:auto;border:1px solid var(--rule);border-radius:6px}
+.pyTxWrap .impTable{margin:0}
+.pyTxWrap .impTable th{position:sticky;top:0}
+.pyTxWrap tr.row{cursor:pointer}
+.pyTxWrap tr.row:hover td{background:#DCE9F5}
+.pyTotals{display:flex;gap:22px;justify-content:flex-end;padding:8px 4px 0;font-size:14px}
+.pyTotals b{font-variant-numeric:tabular-nums}
+@media (max-width:760px){.pyWrap{grid-template-columns:1fr;height:auto}#pyList{max-height:30vh}}
+.rbGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.rbGrid3{display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:8px 10px}
+.recWrap{display:flex;flex-direction:column;height:100%;gap:10px}
+.recTop{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.recHide{font-size:14px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.recCols{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:14px;min-height:0}
+.recCol{display:flex;flex-direction:column;min-height:0}
+.recColHead{display:flex;justify-content:space-between;align-items:baseline;padding:4px 2px 6px;color:var(--accent)}
+.recList{flex:1;overflow:auto;border:1px solid var(--rule);border-radius:6px}
+.recTable{width:100%;border-collapse:collapse;font-size:14px}
+.recTable th{position:sticky;top:0;background:var(--headbg);color:var(--accent);font-size:12px;text-align:left;padding:6px 8px;z-index:1}
+.recTable th.num{text-align:right}
+.recTable td{padding:6px 8px;border-bottom:1px solid var(--rule);cursor:pointer;user-select:none}
+.recTable tr:nth-child(even) td{background:var(--ledger)}
+.recTable tr.on td{background:#D6E6F7}
+.recTable td.ck{width:30px;text-align:center;font-weight:700;color:var(--accent)}
+.recFoot{display:grid;grid-template-columns:1fr 1fr auto;gap:18px;align-items:end;border-top:2px solid var(--rule);padding-top:10px}
+.recSum{font-size:14px;display:grid;grid-template-columns:1fr auto;gap:2px 16px}
+.recSum b{font-variant-numeric:tabular-nums;text-align:right}
+.recSum .diff{font-size:17px}
+.recBtns{display:flex;flex-direction:column;gap:6px}
+@media print{body.printing>*:not(#printArea){display:none!important}body.printing #printArea{display:block}}
+#printArea{display:none;padding:20px;font-family:var(--font);color:#000}
+#printArea table{width:100%;border-collapse:collapse;font-size:12px}
+#printArea td,#printArea th{padding:3px 6px;border-bottom:1px solid #ccc;text-align:left}
 .catAdd{display:grid;grid-template-columns:1fr 120px auto;gap:8px;align-items:end}
 #ac{position:fixed;z-index:20;background:#fff;border:1px solid #BFCDB8;border-radius:6px;box-shadow:0 6px 18px rgba(20,35,27,.18);max-height:260px;overflow:auto;padding:4px 0}
 #ac div{padding:6px 10px;cursor:pointer;white-space:nowrap}
@@ -136,6 +184,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
     <h1>Checkbook</h1>
     <div id="acctList"></div>
     <button class="sidebtn" id="btnAddAcct">+ Add account</button>
+    <button class="sidebtn" id="btnPayees">Payees</button>
     <button class="sidebtn" id="btnCats">Categories</button>
     <button class="sidebtn" id="btnImport">Import from QuickBooks</button>
     <div id="saveStatus"></div>
@@ -151,7 +200,8 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
       </div>
       <div class="stat">Balance<b id="stBal"></b></div>
       <div class="stat">Cleared balance<b id="stClr"></b></div>
-      <input id="search" type="search" placeholder="Find payee, memo, amount…">
+      <button class="btn primary" id="btnRecon" style="margin-left:auto">Reconcile</button>
+      <input id="search" type="search" placeholder="Find payee, memo, amount…" style="margin-left:0">
     </div>
 
     <div id="regWrap">
@@ -207,6 +257,97 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
   <div class="btns"><button class="btn" id="aCancel">Cancel</button><button class="btn primary" id="aOk">Add account</button></div>
 </dialog>
 
+<dialog id="dlgRecBegin" style="max-width:620px">
+  <h3>Begin reconciliation</h3>
+  <p class="impNote" id="rbAcct"></p>
+  <div id="rbResume" class="impNote hidden" style="background:var(--headbg);padding:8px 10px;border-radius:6px"></div>
+  <div class="rbGrid">
+    <div class="f"><label for="rbDate">Statement date</label><input id="rbDate" type="date"></div>
+    <div class="f"><label>Beginning balance</label><input id="rbBegin" class="num" disabled></div>
+    <div class="f"><label for="rbEnd">Ending balance</label><input id="rbEnd" class="num" inputmode="decimal" placeholder="From your bank statement"></div>
+  </div>
+  <p class="impNote" style="margin-top:12px">Enter any service charge or interest from your statement. They're added to the register when you finish.</p>
+  <div class="rbGrid3">
+    <div class="f"><label for="rbSvc">Service charge</label><input id="rbSvc" class="num" inputmode="decimal"></div>
+    <div class="f"><label for="rbSvcDate">Date</label><input id="rbSvcDate" type="date"></div>
+    <div class="f"><label for="rbSvcCat">Category</label><input id="rbSvcCat" autocomplete="off"></div>
+    <div class="f"><label for="rbInt">Interest earned</label><input id="rbInt" class="num" inputmode="decimal"></div>
+    <div class="f"><label for="rbIntDate">Date</label><input id="rbIntDate" type="date"></div>
+    <div class="f"><label for="rbIntCat">Category</label><input id="rbIntCat" autocomplete="off"></div>
+  </div>
+  <div id="rbMsg" style="color:var(--red);font-size:13px;min-height:1em"></div>
+  <div class="btns" style="justify-content:space-between;flex-wrap:wrap">
+    <span><button class="btn" id="rbHistory">Past reconciliations</button> <button class="btn danger" id="rbUndo">Undo last reconciliation</button></span>
+    <span><button class="btn" id="rbCancel">Cancel</button> <button class="btn primary" id="rbGo">Continue</button></span>
+  </div>
+</dialog>
+
+<dialog id="dlgRec" style="max-width:1200px;width:96vw;height:92vh;padding:16px">
+  <div class="recWrap">
+    <div class="recTop">
+      <h3 id="rcTitle" style="margin:0"></h3>
+      <label class="recHide"><input type="checkbox" id="rcHide" checked> Hide transactions after the statement date</label>
+    </div>
+    <div class="recCols">
+      <div class="recCol">
+        <div class="recColHead"><b>Checks and payments</b><span><button class="linkbtn" data-mark="pay">Mark all</button> &nbsp; <button class="linkbtn" data-unmark="pay">Unmark all</button></span></div>
+        <div class="recList"><table class="recTable" id="rcPay"></table></div>
+      </div>
+      <div class="recCol">
+        <div class="recColHead"><b>Deposits and other credits</b><span><button class="linkbtn" data-mark="dep">Mark all</button> &nbsp; <button class="linkbtn" data-unmark="dep">Unmark all</button></span></div>
+        <div class="recList"><table class="recTable" id="rcDep"></table></div>
+      </div>
+    </div>
+    <div class="recFoot">
+      <div class="recSum" id="rcSumLeft"></div>
+      <div class="recSum" id="rcSumRight"></div>
+      <div class="recBtns">
+        <button class="btn" id="rcModify">Modify</button>
+        <button class="btn" id="rcLeave">Leave (save for later)</button>
+        <button class="btn primary" id="rcFinish">Reconcile now</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="dlgRecReport" style="max-width:820px">
+  <div id="rrBody"></div>
+  <div class="btns" style="margin-top:12px"><button class="btn" id="rrPrint">Print</button><button class="btn primary" id="rrClose">Close</button></div>
+</dialog>
+
+<dialog id="dlgRecHist" style="max-width:620px">
+  <h3>Past reconciliations</h3>
+  <div id="rhList"></div>
+  <div class="btns" style="margin-top:12px"><button class="btn primary" id="rhClose">Close</button></div>
+</dialog>
+
+<div id="printArea"></div>
+<dialog id="dlgPayees" style="max-width:1000px;width:95vw">
+  <h3 id="pyTitle">Payees</h3>
+  <div class="pyWrap">
+    <div class="pyLeft">
+      <input id="pySearch" type="search" placeholder="Find a payee…" autocomplete="off">
+      <div id="pyList"></div>
+    </div>
+    <div class="pyRight">
+      <div id="pyEmpty" class="impNote">Click a payee on the left to see every transaction with them.</div>
+      <div id="pyDetail" class="hidden">
+        <div class="pyHead">
+          <h4 id="pyName"></h4>
+          <button class="linkbtn" id="pyRename">Rename or merge</button>
+          <button class="linkbtn hidden" id="pyDelete" style="color:var(--red)">Remove from list</button>
+        </div>
+        <div class="pyRange">
+          <select id="pyRange"><option value="all">All dates</option><option value="this">This year</option><option value="last">Last year</option><option value="custom">Custom dates</option></select>
+          <span id="pyCustom" class="hidden"><input type="date" id="pyFrom"> to <input type="date" id="pyTo"></span>
+        </div>
+        <div class="pyTxWrap"><table class="impTable" id="pyTx"></table></div>
+        <div id="pyTotals" class="pyTotals"></div>
+      </div>
+    </div>
+  </div>
+  <div class="btns" style="margin-top:12px"><button class="btn primary" id="pyDone">Done</button></div>
+</dialog>
 <dialog id="dlgImport" style="max-width:680px">
   <h3>Import from QuickBooks</h3>
   <div id="impStep1">
@@ -757,6 +898,254 @@ $("cAdd").onclick = () => {
   if (catByName(n)) return $("cMsg").textContent = "That category already exists.";
   db.categories.push({id: uid(), name: n, type: $("cType").value, hidden: false});
   $("cName").value = ""; $("cMsg").textContent = ""; save(); renderCats(); renderLists();
+};
+
+/* ---------- Reconcile (works like QuickBooks) ----------
+   1. Begin: statement date, ending balance, service charge, interest.
+   2. Check off each item on your statement until the Difference is 0.00.
+   3. Reconcile now: marked items become R and a report is saved. */
+let rec = null;   // the reconcile in progress
+const recBegin = id => acctTxns(id).filter(t => t.status === "R").reduce((s, t) => s + t.amount, 0);
+function addDays(iso, n) { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+
+$("btnRecon").onclick = () => {
+  const a = acct(curAcct); if (!a) return;
+  db.reconciles = db.reconciles || []; db.recDrafts = db.recDrafts || {};
+  const draft = db.recDrafts[a.id];
+  const last = db.reconciles.filter(r => r.accountId === a.id).pop();
+  $("rbAcct").textContent = `Account: ${a.name}` + (last ? `. Last reconciled for the statement dated ${shortDate(last.statementDate)}.` : ". Not reconciled in this checkbook yet.");
+  $("rbBegin").value = money(recBegin(a.id));
+  const d = draft || {};
+  $("rbDate").value = d.statementDate || (last ? addDays(last.statementDate, 30) : todayISO());
+  $("rbEnd").value = d.ending != null ? (d.ending < 0 ? "-" : "") + (Math.abs(d.ending) / 100).toFixed(2) : "";
+  $("rbSvc").value = d.svc ? plain(d.svc) : ""; $("rbSvcDate").value = d.svcDate || ""; $("rbSvcCat").value = d.svcCat || "Bank Service Charges";
+  $("rbInt").value = d.int ? plain(d.int) : ""; $("rbIntDate").value = d.intDate || ""; $("rbIntCat").value = d.intCat || "";
+  $("rbResume").classList.toggle("hidden", !draft);
+  $("rbResume").textContent = "You have a reconciliation in progress. Click Continue to pick up where you left off.";
+  $("rbUndo").classList.toggle("hidden", !last); $("rbMsg").textContent = "";
+  $("dlgRecBegin").showModal();
+};
+typeAhead($("rbSvcCat"), categoryNames); typeAhead($("rbIntCat"), categoryNames);
+$("rbCancel").onclick = () => $("dlgRecBegin").close();
+
+$("rbGo").onclick = () => {
+  const m = $("rbMsg"); m.textContent = "";
+  const date = $("rbDate").value, end = parseMoney($("rbEnd").value);
+  const svc = parseMoney($("rbSvc").value), int = parseMoney($("rbInt").value);
+  if (!date) return m.textContent = "Enter the statement date.";
+  if ($("rbEnd").value.trim() === "" || isNaN(end)) return m.textContent = "Enter the ending balance from your statement.";
+  if (isNaN(svc) || isNaN(int) || svc < 0 || int < 0) return m.textContent = "Service charge and interest should be amounts like 12.00.";
+  if (svc && !catByName($("rbSvcCat").value)) return m.textContent = "Pick a category for the service charge.";
+  if (int && !catByName($("rbIntCat").value)) return m.textContent = "Pick a category for the interest.";
+  rec = {accountId: curAcct, statementDate: date, ending: end, svc, svcDate: $("rbSvcDate").value || date, svcCat: $("rbSvcCat").value.trim(),
+         int, intDate: $("rbIntDate").value || date, intCat: $("rbIntCat").value.trim()};
+  db.recDrafts[curAcct] = rec; save();
+  $("dlgRecBegin").close(); openRecWindow();
+};
+
+function openRecWindow() {
+  $("rcTitle").textContent = `Reconcile ${acct(rec.accountId).name}, statement dated ${shortDate(rec.statementDate)}`;
+  renderRec(); $("dlgRec").showModal();
+}
+function recItems() {
+  return sortTxns(acctTxns(rec.accountId).filter(t => t.status !== "R"));
+}
+function renderRec() {
+  const hide = $("rcHide").checked;
+  const items = recItems().filter(t => !hide || t.date <= rec.statementDate || t.status === "c");
+  const row = t => `<tr data-r="${t.id}" class="${t.status === "c" ? "on" : ""}"><td class="ck">${t.status === "c" ? "✓" : ""}</td>
+    <td>${shortDate(t.date)}</td><td>${esc(t.num)}</td><td>${esc(t.payee)}</td><td class="num">${money(Math.abs(t.amount))}</td></tr>`;
+  const head = `<tr><th></th><th>Date</th><th>Num</th><th>Payee</th><th class="num">Amount</th></tr>`;
+  const pays = items.filter(t => t.amount < 0), deps = items.filter(t => t.amount > 0);
+  $("rcPay").innerHTML = head + (pays.map(row).join("") || `<tr><td colspan="5" class="impNote">None</td></tr>`);
+  $("rcDep").innerHTML = head + (deps.map(row).join("") || `<tr><td colspan="5" class="impNote">None</td></tr>`);
+  document.querySelectorAll("#dlgRec tr[data-r]").forEach(tr => {
+    tr.onclick = () => { const t = db.transactions.find(x => x.id === tr.dataset.r); t.status = t.status === "c" ? "" : "c"; save(); renderRec(); };
+    tr.ondblclick = () => { rcLeave(); jumpToTxn(tr.dataset.r); };
+  });
+  recSummary();
+}
+function recTotals() {
+  const marked = recItems().filter(t => t.status === "c");
+  const dep = marked.filter(t => t.amount > 0), pay = marked.filter(t => t.amount < 0);
+  const begin = recBegin(rec.accountId);
+  const depSum = dep.reduce((s, t) => s + t.amount, 0), paySum = -pay.reduce((s, t) => s + t.amount, 0);
+  const cleared = begin + depSum - paySum - rec.svc + rec.int;
+  return {begin, dep, pay, depSum, paySum, cleared, diff: rec.ending - cleared};
+}
+function recSummary() {
+  const x = recTotals();
+  $("rcSumLeft").innerHTML = `<span>Beginning balance</span><b>${money(x.begin)}</b>
+    <span>${x.dep.length} deposit${x.dep.length === 1 ? "" : "s"} marked</span><b>${money(x.depSum)}</b>
+    <span>${x.pay.length} check${x.pay.length === 1 ? "" : "s"} and payments marked</span><b>${money(x.paySum)}</b>
+    ${rec.svc ? `<span>Service charge</span><b>${money(-rec.svc)}</b>` : ""}${rec.int ? `<span>Interest earned</span><b>${money(rec.int)}</b>` : ""}`;
+  $("rcSumRight").innerHTML = `<span>Statement ending balance</span><b>${money(rec.ending)}</b>
+    <span>Cleared balance</span><b>${money(x.cleared)}</b>
+    <span class="diff">Difference</span><b class="diff" style="color:${x.diff ? "var(--red)" : "var(--accent)"}">${money(x.diff)}</b>`;
+  $("rcFinish").disabled = x.diff !== 0;
+  $("rcFinish").title = x.diff ? "The difference must be 0.00 to finish" : "";
+}
+$("rcHide").onchange = renderRec;
+document.querySelectorAll("#dlgRec [data-mark],#dlgRec [data-unmark]").forEach(b => b.onclick = () => {
+  const side = b.dataset.mark || b.dataset.unmark, on = !!b.dataset.mark, hide = $("rcHide").checked;
+  recItems().filter(t => (side === "pay" ? t.amount < 0 : t.amount > 0) && (!hide || t.date <= rec.statementDate))
+    .forEach(t => t.status = on ? "c" : "");
+  save(); renderRec();
+});
+function rcLeave() { $("dlgRec").close(); save(); renderAll(); }
+$("rcLeave").onclick = rcLeave;
+$("rcModify").onclick = () => { $("dlgRec").close(); $("btnRecon").onclick(); };
+function jumpToTxn(id) {
+  $("search").value = ""; renderRegister(); loadForm(id);
+  document.querySelector(`#regBody tr[data-id="${id}"]`)?.scrollIntoView({block: "center"});
+}
+
+$("rcFinish").onclick = () => {
+  const x = recTotals(); if (x.diff !== 0) return;
+  const a = acct(rec.accountId), rid = uid(), extra = [];
+  const addTx = (amt, date, catName, payee) => {
+    const c = catByName(catName), t = {id: uid(), accountId: a.id, seq: db.seq++, date, num: "", payee, memo: "From bank statement",
+      amount: amt, status: "R", recId: rid, splits: [{categoryId: c ? c.id : null, memo: "", amount: amt}]};
+    db.transactions.push(t); extra.push(t.id);
+  };
+  if (rec.svc) addTx(-rec.svc, rec.svcDate, rec.svcCat, "Service Charge");
+  if (rec.int) addTx(rec.int, rec.intDate, rec.intCat, "Interest");
+  const ids = [...x.dep, ...x.pay].map(t => t.id);
+  [...x.dep, ...x.pay].forEach(t => { t.status = "R"; t.recId = rid; });
+  const report = {id: rid, accountId: a.id, statementDate: rec.statementDate, finished: new Date().toISOString(),
+    beginning: x.begin, ending: rec.ending, depSum: x.depSum, paySum: x.paySum, svc: rec.svc, int: rec.int, items: [...ids, ...extra]};
+  db.reconciles.push(report); delete db.recDrafts[a.id];
+  save(); $("dlgRec").close(); renderAll(); showRecReport(report);
+};
+
+function recReportHTML(r) {
+  const a = acct(r.accountId), items = r.items.map(id => db.transactions.find(t => t.id === id)).filter(Boolean);
+  const rows = list => list.map(t => `<tr><td>${shortDate(t.date)}</td><td>${esc(t.num)}</td><td>${esc(t.payee)}</td><td class="num">${money(Math.abs(t.amount))}</td></tr>`).join("");
+  const pays = sortTxns(items.filter(t => t.amount < 0)), deps = sortTxns(items.filter(t => t.amount > 0));
+  const unc = sortTxns(acctTxns(r.accountId).filter(t => t.status !== "R" && t.date <= r.statementDate));
+  return `<h3 style="margin:0 0 4px">Reconciliation report: ${esc(a ? a.name : "")}</h3>
+    <p class="impNote">Statement dated ${shortDate(r.statementDate)}. Finished ${new Date(r.finished).toLocaleString()}.</p>
+    <table class="impTable"><tr><td>Beginning balance</td><td class="num">${money(r.beginning)}</td></tr>
+      <tr><td>Checks and payments cleared (${pays.length})</td><td class="num">${money(-pays.reduce((s, t) => s - t.amount, 0))}</td></tr>
+      <tr><td>Deposits and credits cleared (${deps.length})</td><td class="num">${money(deps.reduce((s, t) => s + t.amount, 0))}</td></tr>
+      <tr><td><b>Ending balance</b></td><td class="num"><b>${money(r.ending)}</b></td></tr>
+      <tr><td>Uncleared items on or before the statement date (${unc.length})</td><td class="num">${money(unc.reduce((s, t) => s + t.amount, 0))}</td></tr></table>
+    <h4 style="margin:14px 0 4px">Cleared checks and payments</h4>
+    <table class="impTable"><tr><th>Date</th><th>Num</th><th>Payee</th><th class="num">Amount</th></tr>${rows(pays) || `<tr><td colspan="4">None</td></tr>`}</table>
+    <h4 style="margin:14px 0 4px">Cleared deposits and credits</h4>
+    <table class="impTable"><tr><th>Date</th><th>Num</th><th>Payee</th><th class="num">Amount</th></tr>${rows(deps) || `<tr><td colspan="4">None</td></tr>`}</table>`;
+}
+function showRecReport(r) { $("rrBody").innerHTML = recReportHTML(r); $("dlgRecReport").showModal(); }
+$("rrClose").onclick = () => $("dlgRecReport").close();
+$("rrPrint").onclick = () => {
+  $("printArea").innerHTML = $("rrBody").innerHTML;
+  $("dlgRecReport").close(); document.body.classList.add("printing");
+  setTimeout(() => { window.print(); document.body.classList.remove("printing"); $("dlgRecReport").showModal(); }, 50);
+};
+
+$("rbHistory").onclick = () => {
+  const list = (db.reconciles || []).filter(r => r.accountId === curAcct).slice().reverse();
+  $("rhList").innerHTML = list.length ? `<table class="impTable"><tr><th>Statement date</th><th class="num">Ending balance</th><th>Items</th><th></th></tr>` +
+    list.map(r => `<tr><td>${shortDate(r.statementDate)}</td><td class="num">${money(r.ending)}</td><td>${r.items.length}</td><td><button class="linkbtn" data-rr="${r.id}">View report</button></td></tr>`).join("") + `</table>`
+    : `<p class="impNote">No reconciliations done in this checkbook yet. Items reconciled in QuickBooks show R in the register.</p>`;
+  document.querySelectorAll("[data-rr]").forEach(b => b.onclick = () => showRecReport(db.reconciles.find(r => r.id === b.dataset.rr)));
+  $("dlgRecHist").showModal();
+};
+$("rhClose").onclick = () => $("dlgRecHist").close();
+
+$("rbUndo").onclick = () => {
+  const list = (db.reconciles || []).filter(r => r.accountId === curAcct); const last = list[list.length - 1]; if (!last) return;
+  const ans = prompt(`Undo the reconciliation for the statement dated ${shortDate(last.statementDate)}?\n\nIts ${last.items.length} items go back to cleared (✓) so you can reconcile again. Service charges and interest it added stay in the register.\n\nType YES to undo.`);
+  if (ans === null) return;
+  if (ans.trim().toUpperCase() !== "YES") return alert("Not undone. You need to type YES.");
+  last.items.forEach(id => { const t = db.transactions.find(x => x.id === id); if (t && t.recId === last.id) { t.status = "c"; delete t.recId; } });
+  db.reconciles = db.reconciles.filter(r => r !== last);
+  save(); renderAll(); $("dlgRecBegin").close(); $("btnRecon").onclick();
+};
+
+/* ---------- Payees ----------
+   Every payee for the account you're in. Click one to see all its transactions. */
+let pySel = null;
+const sameName = (a, b) => (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
+function payeeStats() {
+  const a = acct(curAcct); const map = new Map();
+  (a.payees || []).forEach(p => map.set(p.toLowerCase(), {name: p, n: 0}));
+  acctTxns(a.id).forEach(t => {
+    if (!t.payee) return;
+    const k = t.payee.toLowerCase();
+    if (!map.has(k)) map.set(k, {name: t.payee, n: 0});
+    map.get(k).n++;
+  });
+  return [...map.values()].sort((x, y) => x.name.localeCompare(y.name));
+}
+function renderPayeeList() {
+  const q = $("pySearch").value.trim().toLowerCase();
+  const list = payeeStats().filter(p => !q || p.name.toLowerCase().includes(q));
+  $("pyList").innerHTML = list.length ? list.map(p =>
+    `<button class="pyItem ${sameName(p.name, pySel) ? "on" : ""}" data-p="${esc(p.name)}"><span>${esc(p.name)}</span><span class="c">${p.n || "unused"}</span></button>`).join("")
+    : `<div class="impNote" style="padding:10px">No payees match.</div>`;
+  document.querySelectorAll(".pyItem").forEach(b => b.onclick = () => { pySel = b.dataset.p; renderPayeeList(); renderPayeeDetail(); });
+}
+function pyDates() {
+  const y = new Date().getFullYear(), r = $("pyRange").value;
+  if (r === "this") return [`${y}-01-01`, `${y}-12-31`];
+  if (r === "last") return [`${y - 1}-01-01`, `${y - 1}-12-31`];
+  if (r === "custom") return [$("pyFrom").value || "0000-01-01", $("pyTo").value || "9999-12-31"];
+  return ["0000-01-01", "9999-12-31"];
+}
+function renderPayeeDetail() {
+  if (!pySel) { $("pyDetail").classList.add("hidden"); $("pyEmpty").classList.remove("hidden"); return; }
+  $("pyEmpty").classList.add("hidden"); $("pyDetail").classList.remove("hidden");
+  $("pyName").textContent = pySel;
+  $("pyCustom").classList.toggle("hidden", $("pyRange").value !== "custom");
+  const [from, to] = pyDates();
+  const all = sortTxns(acctTxns(curAcct).filter(t => sameName(t.payee, pySel)));
+  $("pyDelete").classList.toggle("hidden", all.length > 0);
+  const txs = all.filter(t => t.date >= from && t.date <= to);
+  let pay = 0, dep = 0;
+  $("pyTx").innerHTML = `<tr><th>Date</th><th>Num</th><th>Category</th><th>Memo</th><th class="num">Payment</th><th class="num">Deposit</th></tr>` +
+    (txs.length ? txs.map(t => {
+      if (t.amount < 0) pay -= t.amount; else dep += t.amount;
+      const cat = t.splits.length > 1 ? `<span class="split" style="font-style:italic;color:var(--accent)">Split: ${t.splits.map(s => esc(catById(s.categoryId)?.name || "Uncategorized")).join(", ")}</span>` : esc(catById(t.splits[0]?.categoryId)?.name || "Uncategorized");
+      return `<tr class="row" data-t="${t.id}"><td>${shortDate(t.date)}</td><td>${esc(t.num)}</td><td>${cat}</td><td>${esc(t.memo)}</td>
+        <td class="num">${t.amount < 0 ? money(-t.amount) : ""}</td><td class="num">${t.amount > 0 ? money(t.amount) : ""}</td></tr>`;
+    }).join("") : `<tr><td colspan="6" class="impNote">No transactions ${all.length ? "in these dates" : "with this payee yet"}.</td></tr>`);
+  $("pyTotals").innerHTML = `<span>${txs.length} transaction${txs.length === 1 ? "" : "s"}</span>` +
+    (pay ? `<span>Paid <b>${money(pay)}</b></span>` : "") + (dep ? `<span>Received <b>${money(dep)}</b></span>` : "");
+  document.querySelectorAll("#pyTx tr.row").forEach(r => r.onclick = () => jumpTo(r.dataset.t));
+}
+function jumpTo(id) {
+  $("dlgPayees").close(); $("search").value = "";
+  renderRegister(); loadForm(id);
+  document.querySelector(`#regBody tr[data-id="${id}"]`)?.scrollIntoView({block: "center"});
+}
+$("btnPayees").onclick = () => {
+  if (!acct(curAcct)) return;
+  $("pyTitle").textContent = "Payees for " + acct(curAcct).name;
+  pySel = null; $("pySearch").value = ""; $("pyRange").value = "all";
+  renderPayeeList(); renderPayeeDetail(); $("dlgPayees").showModal(); $("pySearch").focus();
+};
+$("pySearch").oninput = renderPayeeList;
+$("pyRange").onchange = renderPayeeDetail; $("pyFrom").onchange = renderPayeeDetail; $("pyTo").onchange = renderPayeeDetail;
+$("pyDone").onclick = () => { $("dlgPayees").close(); renderAll(); };
+$("pyRename").onclick = () => {
+  const old = pySel, a = acct(curAcct);
+  const n = (prompt(`New name for "${old}":\n\nTip: type the name of another payee to merge the two into one.`, old) || "").trim();
+  if (!n || n === old) return;
+  const existing = payeeStats().find(p => sameName(p.name, n) && !sameName(p.name, old));
+  if (existing && !confirm(`"${existing.name}" is already a payee.\n\nMerge "${old}" into "${existing.name}"? All of "${old}"'s transactions will move to "${existing.name}".`)) return;
+  const finalName = existing ? existing.name : n;
+  let moved = 0;
+  acctTxns(a.id).forEach(t => { if (sameName(t.payee, old)) { t.payee = finalName; moved++; } });
+  a.payees = (a.payees || []).filter(p => !sameName(p, old));
+  if (!a.payees.some(p => sameName(p, finalName))) a.payees.push(finalName);
+  pySel = finalName; $("pySearch").value = ""; save(); renderPayeeList(); renderPayeeDetail(); renderRegister();
+};
+$("pyDelete").onclick = () => {
+  const a = acct(curAcct);
+  if (!confirm(`Remove "${pySel}" from the payee list? It has no transactions.`)) return;
+  a.payees = (a.payees || []).filter(p => !sameName(p, pySel));
+  pySel = null; save(); renderPayeeList(); renderPayeeDetail();
 };
 
 /* ---------- Import from QuickBooks Desktop ----------
