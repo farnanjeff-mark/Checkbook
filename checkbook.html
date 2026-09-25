@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkbook</title>
+<style>
+:root{
+  --paper:#F8FAFB; --ledger:#E9F3EC; --rule:#CCDCD3; --ink:#1B2630; --muted:#56646E;
+  --side:#2E7D4F; --side2:#3C9160; --sideink:#EAF4EE; --accent:#1F5A96; --accent2:#184A7C; --red:#A1302A; --brass:#8EC3F0;
+  --headbg:#EAF1F8;
+  --font:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);color:var(--ink);background:var(--paper);font-size:15px}
+button{font:inherit;cursor:pointer}
+input,select{font:inherit;color:var(--ink)}
+.num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.neg{color:var(--red)}
+.hidden{display:none!important}
+
+/* layout */
+#app{display:grid;grid-template-columns:230px 1fr;height:100%}
+#side{background:var(--side);color:var(--sideink);display:flex;flex-direction:column;min-height:0}
+#side h1{font-size:20px;font-weight:600;margin:0;padding:20px 18px 14px;letter-spacing:.2px}
+#acctList{flex:1;overflow:auto;padding:4px 0}
+.acct{display:block;width:100%;text-align:left;background:none;border:0;color:var(--sideink);padding:10px 18px;border-left:4px solid transparent}
+.acct:hover{background:var(--side2)}
+.acct.on{background:var(--side2);border-left-color:var(--brass)}
+.acct .n{font-weight:600;display:block}
+.acct .b{font-size:13px;opacity:.8;font-variant-numeric:tabular-nums}
+.acct .b.neg{color:#F2A49B;opacity:1}
+.sidebtn{background:none;border:1px solid rgba(255,255,255,.3);color:var(--sideink);border-radius:6px;padding:8px 12px;margin:4px 18px;text-align:left}
+.sidebtn:hover{background:var(--side2)}
+#saveStatus{font-size:12px;opacity:.75;padding:12px 18px 16px;line-height:1.4}
+
+#main{display:flex;flex-direction:column;min-width:0;min-height:0}
+#top{display:flex;align-items:flex-end;gap:24px;padding:18px 24px 12px;border-bottom:3px solid var(--accent);flex-wrap:wrap}
+#acctName{font-size:24px;font-weight:600;margin:0}
+.stat{font-size:13px;color:var(--muted)}
+.stat b{display:block;font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600}
+#search{margin-left:auto;padding:7px 10px;border:1px solid var(--rule);border-radius:6px;width:220px;background:#fff}
+.linkbtn{background:none;border:0;color:var(--accent);text-decoration:underline;padding:0;font-size:13px}
+
+#regWrap{flex:1;overflow:auto;min-height:0}
+table.reg{width:100%;border-collapse:collapse}
+.reg th{position:sticky;top:0;background:var(--headbg);font-size:12px;font-weight:600;color:var(--accent);text-align:left;padding:8px 8px;border-bottom:1px solid var(--rule);z-index:1}
+.reg th.num{text-align:right}
+.reg td{padding:7px 8px;border-bottom:1px solid var(--rule);vertical-align:top}
+.reg tbody tr:nth-child(even){background:var(--ledger)}
+.reg tbody tr{cursor:pointer}
+.reg tbody tr:hover{background:#DCE9F5}
+.reg tbody tr.editing{outline:2px solid var(--accent);outline-offset:-2px}
+.reg .memo{color:var(--muted);font-size:13px}
+.reg .split{font-style:italic;color:var(--accent)}
+.clr{width:34px;text-align:center}
+.clr button{background:none;border:1px solid transparent;border-radius:4px;width:26px;height:24px;color:var(--accent);font-weight:700}
+.clr button:hover{border-color:var(--rule);background:#fff}
+.empty{padding:40px 24px;color:var(--muted)}
+
+/* entry form */
+#entry{border-top:3px solid var(--side);background:#fff;padding:12px 24px 14px}
+#entryTitle{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px}
+#keyHint{float:right;font-size:12px;font-weight:400;color:var(--muted)}
+.frow{display:grid;grid-template-columns:140px 80px 1.3fr 1.3fr 110px 110px;gap:8px}
+.frow2{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px;align-items:center}
+.f label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+.f input{width:100%;padding:7px 8px;border:1px solid #B7C8D4;border-radius:5px;background:#fff}
+.f input:disabled{background:#F1F4EE;color:var(--muted)}
+.f input.num{text-align:right}
+.btns{display:flex;gap:8px;justify-content:flex-end}
+.btn{border:1px solid #BFCDB8;background:#fff;border-radius:6px;padding:7px 14px}
+.btn:hover{background:var(--ledger)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn.primary:hover{background:var(--accent2)}
+.btn.danger{color:var(--red)}
+.btn:disabled{opacity:.45;cursor:default}
+#splitBox{margin-top:10px;border:1px solid var(--rule);border-radius:6px;padding:10px;background:var(--paper)}
+#splitBox table{width:100%;border-collapse:collapse}
+#splitBox td{padding:3px 4px}
+#splitBox input{width:100%;padding:6px 8px;border:1px solid #BFCDB8;border-radius:5px}
+#splitSum{font-size:13px;margin-top:6px;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+#splitSum .bad{color:var(--red);font-weight:600}
+#splitSum .good{color:var(--accent);font-weight:600}
+.x{background:none;border:0;color:var(--muted);font-size:18px;line-height:1}
+#msg{color:var(--red);font-size:13px;margin-top:6px;min-height:1em}
+
+/* banners, start screen, dialogs */
+#sampleBanner{background:#CFE3F6;color:#12385F;padding:6px 24px;font-size:13px;font-weight:600}
+#start{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:10;padding:20px}
+.startCard{max-width:520px}
+.startCard h2{font-size:30px;margin:0 0 8px}
+.startCard p{color:var(--muted);line-height:1.5;margin:0 0 20px}
+.startCard .btn{display:block;width:100%;text-align:left;padding:12px 16px;margin-bottom:10px;font-size:16px}
+.startCard small{display:block;color:var(--muted);font-size:13px;font-weight:400;margin-top:2px}
+#startErr{color:var(--red);margin-top:10px;line-height:1.4}
+dialog{border:1px solid var(--rule);border-radius:10px;padding:20px;max-width:560px;width:92vw;color:var(--ink)}
+dialog::backdrop{background:rgba(20,35,27,.45)}
+dialog h3{margin:0 0 14px;font-size:19px}
+dialog .f{margin-bottom:10px}
+dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:5px;background:#fff}
+#catList{max-height:50vh;overflow:auto;border:1px solid var(--rule);border-radius:6px;margin-bottom:12px}
+.catRow{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--rule);font-size:14px}
+.catRow:nth-child(even){background:var(--ledger)}
+.catRow .nm{flex:1}
+.catRow .ty{font-size:12px;color:var(--muted);width:60px}
+.catRow .ct{font-size:12px;color:var(--muted);width:70px;text-align:right}
+.catRow.hid .nm{opacity:.45;text-decoration:line-through}
+.impTable{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}
+.impTable td,.impTable th{padding:5px 8px;border-bottom:1px solid var(--rule);text-align:left}
+.impTable th{color:var(--accent);font-size:12px;background:var(--headbg)}
+.impNote{font-size:13px;color:var(--muted);line-height:1.5;margin:6px 0}
+.catAdd{display:grid;grid-template-columns:1fr 120px auto;gap:8px;align-items:end}
+#ac{position:fixed;z-index:20;background:#fff;border:1px solid #BFCDB8;border-radius:6px;box-shadow:0 6px 18px rgba(20,35,27,.18);max-height:260px;overflow:auto;padding:4px 0}
+#ac div{padding:6px 10px;cursor:pointer;white-space:nowrap}
+#ac div.on{background:var(--accent);color:#fff}
+#ac div:not(.on):hover{background:var(--ledger)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+</style>
+</head>
+<body>
+
+<div id="start">
+  <div class="startCard">
+    <h2>Checkbook</h2>
+    <p>Your records are saved in a folder on this computer. Nothing is sent over the internet.</p>
+    <button class="btn primary hidden" id="btnReopen">Open my checkbook<small id="reopenName"></small></button>
+    <button class="btn" id="btnPick">Choose a folder<small>Pick an existing checkbook folder, or an empty one to start new</small></button>
+    <button class="btn" id="btnSample">Try it with sample data<small>For testing. Nothing is saved.</small></button>
+    <div id="startErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <aside id="side">
+    <h1>Checkbook</h1>
+    <div id="acctList"></div>
+    <button class="sidebtn" id="btnAddAcct">+ Add account</button>
+    <button class="sidebtn" id="btnCats">Categories</button>
+    <button class="sidebtn" id="btnImport">Import from QuickBooks</button>
+    <div id="saveStatus"></div>
+  </aside>
+
+  <main id="main">
+    <div id="sampleBanner" class="hidden">Sample mode. Changes are not saved. Reload the page to go back.</div>
+    <div id="top">
+      <div>
+        <h2 id="acctName"></h2>
+        <button class="linkbtn" id="btnRename">Rename account</button>
+      </div>
+      <div class="stat">Balance<b id="stBal"></b></div>
+      <div class="stat">Cleared balance<b id="stClr"></b></div>
+      <input id="search" type="search" placeholder="Find payee, memo, amount…">
+    </div>
+
+    <div id="regWrap">
+      <table class="reg">
+        <thead><tr>
+          <th style="width:88px">Date</th><th style="width:70px">Num</th><th>Payee / Memo</th><th>Category</th>
+          <th class="num" style="width:100px">Payment</th><th class="num" style="width:100px">Deposit</th>
+          <th class="clr" title="Cleared">✓</th><th class="num" style="width:110px">Balance</th>
+        </tr></thead>
+        <tbody id="regBody"></tbody>
+      </table>
+      <div id="regEmpty" class="empty hidden"></div>
+    </div>
+
+    <div id="entry">
+      <div id="keyHint">Enter: next box &nbsp;&nbsp; Ctrl+S: split &nbsp;&nbsp; Ctrl+Enter: record</div><div id="entryTitle">New transaction</div>
+      <div class="frow">
+        <div class="f"><label for="fDate">Date</label><input id="fDate" type="date"></div>
+        <div class="f"><label for="fNum">Num</label><input id="fNum"></div>
+        <div class="f"><label for="fPayee">Payee</label><input id="fPayee" autocomplete="off"></div>
+        <div class="f"><label for="fCat">Category</label><input id="fCat" autocomplete="off"></div>
+        <div class="f"><label for="fPay">Payment</label><input id="fPay" class="num" inputmode="decimal"></div>
+        <div class="f"><label for="fDep">Deposit</label><input id="fDep" class="num" inputmode="decimal"></div>
+      </div>
+      <div class="frow2">
+        <div class="f"><label for="fMemo">Memo</label><input id="fMemo"></div>
+        <div class="btns" style="padding-top:18px">
+          <button class="btn" id="btnSplit">Split</button>
+          <button class="btn danger hidden" id="btnDelete">Delete</button>
+          <button class="btn" id="btnClear">Clear</button>
+          <button class="btn primary" id="btnSave">Record</button>
+        </div>
+      </div>
+      <div id="splitBox" class="hidden">
+        <table><tbody id="splitBody"></tbody></table>
+        <div id="splitSum"></div>
+      </div>
+      <div id="msg"></div>
+    </div>
+  </main>
+</div>
+
+<div id="ac" class="hidden" role="listbox"></div>
+
+<dialog id="dlgAcct">
+  <h3 id="dlgAcctTitle">Add account</h3>
+  <div class="f"><label for="aName">Account name</label><input id="aName"></div>
+  <div id="aOpenFields">
+    <div class="f"><label for="aBal">Opening balance</label><input id="aBal" class="num" placeholder="0.00"></div>
+    <div class="f"><label for="aDate">Opening balance date</label><input id="aDate" type="date"></div>
+  </div>
+  <div id="aMsg" style="color:var(--red);font-size:13px;min-height:1em"></div>
+  <div class="btns"><button class="btn" id="aCancel">Cancel</button><button class="btn primary" id="aOk">Add account</button></div>
+</dialog>
+
+<dialog id="dlgImport" style="max-width:680px">
+  <h3>Import from QuickBooks</h3>
+  <div id="impStep1">
+    <p style="margin:0 0 10px;line-height:1.5">Pick your QuickBooks export files. You can select all three at once by holding <b>Ctrl</b> while you click them:
+      the transactions (Journal) file, plus the categories and vendors files if you have them.</p>
+    <input type="file" id="impFiles" accept=".csv,.CSV" multiple>
+  </div>
+  <div id="impStep2" class="hidden"></div>
+  <div id="impMsg" style="color:var(--red);font-size:13px;min-height:1em;margin-top:8px"></div>
+  <div class="btns"><button class="btn" id="impCancel">Close</button><button class="btn primary hidden" id="impGo">Import</button></div>
+</dialog>
+<dialog id="dlgCats" style="max-width:640px">
+  <h3>Categories</h3>
+  <div id="catList"></div>
+  <div class="catAdd">
+    <div class="f"><label for="cName">New category (use a colon for a subcategory, like Farm Expenses:Feed)</label><input id="cName"></div>
+    <div class="f"><label for="cType">Type</label><select id="cType"><option>Expense</option><option>Income</option><option>Other</option></select></div>
+    <div class="f"><label>&nbsp;</label><button class="btn" id="cAdd">Add</button></div>
+  </div>
+  <div id="cMsg" style="color:var(--red);font-size:13px;min-height:1em"></div>
+  <div class="btns"><button class="btn primary" id="cDone">Done</button></div>
+</dialog>
+
+<script>
+/* ---------- Your QuickBooks categories (I = Income, E = Expense) ---------- */
+const QB_CATEGORIES = [["Agricultural Program Payments","I"],["Deposit","I"],["Deposit:Dividends","I"],["Deposit:Gift","I"],["Deposit:Misc","I"],["Deposit:No Tax","I"],["Deposit:Refund","I"],["Deposit:Stimulus","I"],["Deposit:Tax Refund","I"],["Farm Income","I"],["Farm Income:Calves","I"],["Farm Income:Cattle","I"],["Farm Income:Cows","I"],["Farm Income:Custom","I"],["Farm Income:Hay","I"],["Farm Income:Misc","I"],["Farm Income:No Tax","I"],["Farm Income:No Tax:Calves Boys","I"],["Farm Income:No Tax:Cows Boys","I"],["Farm Income:Raised heifers 2 years old","I"],["Farm Income:Reimbursement","I"],["Loan Proceeds","I"],["Loan Proceeds:Revolving Loan","I"],["Salary SSM","I"],["Accounting Services","E"],["Auto","E"],["Auto:Car and Truck Expenses","E"],["Auto:Down Payment","E"],["Auto:License","E"],["Auto:Payment","E"],["Auto:Repair","E"],["Bank Service Charges","E"],["Clothing","E"],["Computer and Internet Expenses","E"],["Contribution","E"],["Daycare Expenses","E"],["Dining","E"],["Donation","E"],["Dues","E"],["Farm Expenses","E"],["Farm Expenses:Apparel","E"],["Farm Expenses:ATV","E"],["Farm Expenses:Cattle","E"],["Farm Expenses:Cattle Reimbursement","E"],["Farm Expenses:Chemicals Purchased","E"],["Farm Expenses:Dirt Work","E"],["Farm Expenses:Dozing","E"],["Farm Expenses:Electric","E"],["Farm Expenses:Feed","E"],["Farm Expenses:Fencing","E"],["Farm Expenses:Fertilizers and Lime","E"],["Farm Expenses:Freight and Trucking","E"],["Farm Expenses:Fuel, Gasoline, and Oil","E"],["Farm Expenses:Gravel","E"],["Farm Expenses:Hay","E"],["Farm Expenses:Labor","E"],["Farm Expenses:Land","E"],["Farm Expenses:Maintenance","E"],["Farm Expenses:Meds","E"],["Farm Expenses:Mineral","E"],["Farm Expenses:Moco 946","E"],["Farm Expenses:Mower","E"],["Farm Expenses:Pasture Rent","E"],["Farm Expenses:Rock","E"],["Farm Expenses:Seed","E"],["Farm Expenses:Shed","E"],["Farm Expenses:Supplies","E"],["Farm Expenses:Tires","E"],["Farm Expenses:Tractor","E"],["Farm Expenses:Trailer","E"],["Farm Expenses:Trucking","E"],["Farm Expenses:Vet","E"],["Home","E"],["Home:Mortgage","E"],["Insurance","E"],["Insurance:Auto","E"],["Insurance:Farm","E"],["Insurance:Health","E"],["Insurance:Home Owner","E"],["Insurance:Inland Marine","E"],["Insurance:Life","E"],["Loan Payment","E"],["Loan Payment:333g","E"],["Loan Payment:Olins","E"],["Loan Payment:Olins:Interest","E"],["Loan Payment:Olins:Principle","E"],["Loan Payment:Revolving Loan","E"],["Medical","E"],["Misc","E"],["MO Rep","E"],["MO Rep:Milage","E"],["MO Rep:Per Diam","E"],["MO Rep:Salary","E"],["Payroll Expenses","E"],["Professional Fees","E"],["Reconciliation Discrepancies","E"],["Rent Expense","E"],["Repairs and Maintenance","E"],["Taxes","E"],["Taxes:Federal","E"],["Taxes:Property","E"],["Transfer to Account","E"],["Travel","E"],["Utilities","E"]];
+
+const DATA_FILE = "checkbook.json";
+const $ = id => document.getElementById(id);
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+
+/* Money is stored in cents (whole numbers) so totals never drift by a penny. */
+function parseMoney(s) {
+  s = String(s ?? "").replace(/[$,\s]/g, "");
+  if (s === "") return 0;
+  if (!/^-?\d*\.?\d{0,2}$/.test(s) || s === "-" || s === ".") return NaN;
+  return Math.round(parseFloat(s) * 100);
+}
+const money = c => (c < 0 ? "-" : "") + (Math.abs(c) / 100).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const plain = c => c ? (Math.abs(c) / 100).toFixed(2) : "";
+const shortDate = iso => { const [y, m, d] = iso.split("-"); return `${m}/${d}/${y.slice(2)}`; };
+
+/* ---------- State ---------- */
+let db = null, dirHandle = null, sample = false, curAcct = null, editingId = null, splitOn = false, saveTimer = null, savePending = false;
+
+function newDb() {
+  return {
+    version: 1, seq: 1, accounts: [], transactions: [],
+    categories: QB_CATEGORIES.map(([name, t]) => ({id: uid(), name, type: t === "I" ? "Income" : "Expense", hidden: false}))
+  };
+}
+const acct = id => db.accounts.find(a => a.id === id);
+const catById = id => db.categories.find(c => c.id === id);
+const catByName = n => db.categories.find(c => c.name.toLowerCase() === String(n).trim().toLowerCase());
+const acctTxns = id => db.transactions.filter(t => t.accountId === id);
+function sortTxns(list) {
+  return list.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 :
+    ((parseInt(a.num) || 0) - (parseInt(b.num) || 0)) || (a.seq - b.seq));
+}
+const balanceOf = id => acctTxns(id).reduce((s, t) => s + t.amount, 0);
+const clearedOf = id => acctTxns(id).filter(t => t.status).reduce((s, t) => s + t.amount, 0);
+
+/* ---------- Saving to the folder ---------- */
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("checkbook-app", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv");
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function kvSet(k, v) { try { const d = await idb(); d.transaction("kv", "readwrite").objectStore("kv").put(v, k); } catch (e) {} }
+async function kvGet(k) {
+  try { const d = await idb(); return await new Promise(res => { const r = d.transaction("kv").objectStore("kv").get(k); r.onsuccess = () => res(r.result); r.onerror = () => res(null); }); }
+  catch (e) { return null; }
+}
+
+async function openFolder(handle) {
+  if ((await handle.queryPermission({mode: "readwrite"})) !== "granted" &&
+      (await handle.requestPermission({mode: "readwrite"})) !== "granted") throw new Error("Permission to use the folder was not given.");
+  let text = null;
+  try { text = await (await (await handle.getFileHandle(DATA_FILE)).getFile()).text(); } catch (e) { /* no file yet: new checkbook */ }
+  if (text) {
+    db = JSON.parse(text);
+    await dailyBackup(handle, text);
+  } else {
+    db = newDb();
+  }
+  dirHandle = handle; sample = false;
+  await kvSet("dir", handle);
+  if (!text) await writeNow();
+  startApp();
+}
+
+/* One dated copy per day, made before any changes that day. */
+async function dailyBackup(handle, text) {
+  try {
+    const bdir = await handle.getDirectoryHandle("Backups", {create: true});
+    const name = `checkbook-${todayISO()}.json`;
+    try { await bdir.getFileHandle(name); return; } catch (e) {}
+    const w = await (await bdir.getFileHandle(name, {create: true})).createWritable();
+    await w.write(text); await w.close();
+  } catch (e) { console.warn("Backup failed", e); }
+}
+
+function save() {
+  if (sample) return;
+  savePending = true; setStatus("Saving…");
+  clearTimeout(saveTimer); saveTimer = setTimeout(writeNow, 400);
+}
+async function writeNow() {
+  try {
+    const w = await (await dirHandle.getFileHandle(DATA_FILE, {create: true})).createWritable();
+    await w.write(JSON.stringify(db, null, 1)); await w.close();
+    savePending = false;
+    setStatus("Saved " + new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}));
+  } catch (e) {
+    setStatus("Could not save. Check that the folder still exists, then reload.", true);
+  }
+}
+function setStatus(s, bad) {
+  $("saveStatus").innerHTML = (sample ? "Sample data" : "Folder: " + esc(dirHandle.name)) + "<br>" +
+    (bad ? `<span style="color:#F2A49B">${esc(s)}</span>` : esc(s));
+}
+window.addEventListener("beforeunload", e => { if (savePending) { e.preventDefault(); e.returnValue = ""; } });
+
+/* ---------- Start screen ---------- */
+(async function init() {
+  if (!window.showDirectoryPicker) {
+    $("startErr").textContent = "This browser can't save to a folder. Open this file in Chrome or Edge. You can still try the sample.";
+    $("btnPick").disabled = true;
+  }
+  const h = await kvGet("dir");
+  if (h && window.showDirectoryPicker) {
+    $("btnReopen").classList.remove("hidden");
+    $("reopenName").textContent = "Folder: " + h.name;
+    $("btnReopen").onclick = () => openFolder(h).catch(e => $("startErr").textContent = e.message);
+  }
+})();
+$("btnPick").onclick = async () => {
+  try { await openFolder(await showDirectoryPicker({mode: "readwrite", id: "checkbook"})); }
+  catch (e) { if (e.name !== "AbortError") $("startErr").textContent = "Could not open that folder: " + e.message; }
+};
+$("btnSample").onclick = () => { db = sampleDb(); sample = true; startApp(); };
+
+function startApp() {
+  $("start").classList.add("hidden");
+  $("sampleBanner").classList.toggle("hidden", !sample);
+  curAcct = db.accounts[0]?.id || null;
+  setStatus(sample ? "Nothing is saved" : "Saved");
+  renderAll(); clearForm();
+  if (!db.accounts.length) openAcctDialog();
+}
+
+/* ---------- Rendering ---------- */
+function renderAll() { renderSide(); renderRegister(); renderLists(); }
+
+function renderSide() {
+  $("acctList").innerHTML = db.accounts.map(a => {
+    const b = balanceOf(a.id);
+    return `<button class="acct ${a.id === curAcct ? "on" : ""}" data-id="${a.id}"><span class="n">${esc(a.name)}</span><span class="b ${b < 0 ? "neg" : ""}">${money(b)}</span></button>`;
+  }).join("");
+  document.querySelectorAll(".acct").forEach(b => b.onclick = () => { curAcct = b.dataset.id; clearForm(); renderAll(); });
+}
+
+function catLabel(t) {
+  if (t.splits.length > 1) return `<span class="split">Split (${t.splits.length})</span>`;
+  const c = catById(t.splits[0]?.categoryId);
+  return c ? esc(c.name) : `<span class="memo">Uncategorized</span>`;
+}
+
+function renderRegister() {
+  const a = acct(curAcct);
+  $("top").classList.toggle("hidden", !a); $("entry").classList.toggle("hidden", !a);
+  if (!a) { $("regBody").innerHTML = ""; $("regEmpty").classList.remove("hidden"); $("regEmpty").textContent = "Add an account to get started."; return; }
+  $("acctName").textContent = a.name;
+  const bal = balanceOf(a.id), clr = clearedOf(a.id);
+  $("stBal").textContent = money(bal); $("stBal").className = bal < 0 ? "neg" : "";
+  $("stClr").textContent = money(clr); $("stClr").className = clr < 0 ? "neg" : "";
+
+  const q = $("search").value.trim().toLowerCase();
+  let run = 0, rows = [];
+  for (const t of sortTxns(acctTxns(a.id))) {
+    run += t.amount;
+    if (q) {
+      const hay = [t.payee, t.memo, t.num, plain(t.amount), shortDate(t.date), ...t.splits.map(s => (catById(s.categoryId)?.name || "") + " " + (s.memo || ""))].join(" ").toLowerCase();
+      if (!hay.includes(q)) continue;
+    }
+    const st = t.status === "R" ? "R" : t.status === "c" ? "✓" : "";
+    rows.push(`<tr data-id="${t.id}" class="${t.id === editingId ? "editing" : ""}">
+      <td>${shortDate(t.date)}</td><td>${esc(t.num)}</td>
+      <td>${esc(t.payee)}${t.memo ? `<div class="memo">${esc(t.memo)}</div>` : ""}</td>
+      <td>${catLabel(t)}</td>
+      <td class="num">${t.amount < 0 ? money(-t.amount) : ""}</td>
+      <td class="num">${t.amount > 0 ? money(t.amount) : ""}</td>
+      <td class="clr"><button data-clr="${t.id}" title="Click to mark cleared">${st}</button></td>
+      <td class="num ${run < 0 ? "neg" : ""}">${money(run)}</td></tr>`);
+  }
+  $("regBody").innerHTML = rows.join("");
+  const none = !rows.length;
+  $("regEmpty").classList.toggle("hidden", !none);
+  $("regEmpty").textContent = q ? "Nothing matches your search." : "No transactions yet. Enter one below and click Record.";
+  document.querySelectorAll("#regBody tr").forEach(tr => tr.onclick = e => { if (!e.target.closest("[data-clr]")) loadForm(tr.dataset.id); });
+  document.querySelectorAll("[data-clr]").forEach(b => b.onclick = () => toggleCleared(b.dataset.clr));
+}
+
+function renderLists() {
+  const a = acct(curAcct);
+  /* Lists are built fresh as you type (see "Type-ahead lists" below). */
+}
+$("search").oninput = renderRegister;
+function scrollToEnd() { const w = $("regWrap"); w.scrollTop = w.scrollHeight; }
+
+
+/* ---------- Type-ahead lists for Payee and Category ----------
+   As you type, matching names drop down with the best match highlighted.
+   Enter fills in the highlighted name and moves on. Arrow keys pick a different one.
+   Escape closes the list so you can keep a brand-new name as typed. */
+const payeeNames = () => (acct(curAcct)?.payees || []).slice().sort((x, y) => x.localeCompare(y));
+/* Checks list expense categories first; deposits list income categories first. */
+function categoryNames() {
+  const dep = !!$("fDep").value.trim() && !$("fPay").value.trim();
+  const pay = !!$("fPay").value.trim();
+  const rank = c => (dep ? (c.type === "Income" ? 0 : 1) : pay ? (c.type === "Expense" ? 0 : 1) : 0);
+  return db.categories.filter(c => !c.hidden)
+    .sort((x, y) => rank(x) - rank(y) || x.name.localeCompare(y.name)).map(c => c.name);
+}
+let acInput = null, acItems = [], acOn = 0;
+
+function rankMatches(q, names) {
+  q = q.trim().toLowerCase(); if (!q) return names;
+  const starts = [], wordStarts = [], has = [];
+  for (const n of names) {
+    const l = n.toLowerCase();
+    if (l.startsWith(q)) starts.push(n);
+    else if (l.split(/[:\s]+/).some(w => w.startsWith(q)) || l.split(":").some(part => part.startsWith(q))) wordStarts.push(n);
+    else if (l.includes(q)) has.push(n);
+  }
+  return [...starts, ...wordStarts, ...has];
+}
+function acShow(input, items) {
+  acInput = input; acItems = items.slice(0, 50); acOn = 0;
+  const box = $("ac");
+  if (!acItems.length) return acHide();
+  box.innerHTML = acItems.map((n, i) => `<div data-i="${i}" class="${i === 0 ? "on" : ""}">${esc(n)}</div>`).join("");
+  const r = input.getBoundingClientRect();
+  box.style.left = r.left + "px"; box.style.minWidth = r.width + "px";
+  box.classList.remove("hidden");
+  const h = box.offsetHeight;
+  box.style.top = (r.bottom + h + 4 > innerHeight ? r.top - h - 2 : r.bottom + 2) + "px";
+  box.querySelectorAll("div").forEach(d => d.onmousedown = e => { e.preventDefault(); acPick(+d.dataset.i); });
+}
+function acHide() { $("ac").classList.add("hidden"); acItems = []; }
+function acMove(step) {
+  if (!acItems.length) return;
+  acOn = (acOn + step + acItems.length) % acItems.length;
+  $("ac").querySelectorAll("div").forEach((d, i) => d.classList.toggle("on", i === acOn));
+  $("ac").querySelector(".on")?.scrollIntoView({block: "nearest"});
+}
+function acPick(i) {
+  const input = acInput; input.value = acItems[i]; acHide();
+  input.dispatchEvent(new Event("change"));
+}
+function typeAhead(input, getNames) {
+  input.addEventListener("input", () => input.value.trim() ? acShow(input, rankMatches(input.value, getNames())) : acHide());
+  input.addEventListener("keydown", e => {
+    const open = acInput === input && acItems.length;
+    if (e.key === "ArrowDown") { e.preventDefault(); open ? acMove(1) : acShow(input, rankMatches(input.value, getNames())); }
+    else if (e.key === "ArrowUp" && open) { e.preventDefault(); acMove(-1); }
+    else if (e.key === "Escape" && open) { e.preventDefault(); e.stopPropagation(); acHide(); }
+    else if ((e.key === "Enter" || e.key === "Tab") && open) acPick(acOn);  // fills in, then Enter/Tab moves on as usual
+  });
+  input.addEventListener("blur", () => { if (acInput === input) acHide(); });
+}
+typeAhead($("fPayee"), payeeNames);
+typeAhead($("fCat"), categoryNames);
+$("regWrap").addEventListener("scroll", acHide);
+
+/* ---------- Cleared checkmark ---------- */
+function toggleCleared(id) {
+  const t = db.transactions.find(x => x.id === id);
+  if (t.status === "R") {
+    if (!confirm("This transaction was reconciled. Unmarking it will throw off your last reconcile.\n\nUnmark it anyway?")) return;
+    t.status = "";
+  } else t.status = t.status === "c" ? "" : "c";
+  save(); renderAll();
+}
+
+/* ---------- Entry form ---------- */
+function clearForm() {
+  editingId = null; splitOn = false;
+  $("entryTitle").textContent = "New transaction";
+  $("fDate").value = $("fDate").value || todayISO();
+  ["fNum", "fPayee", "fCat", "fPay", "fDep", "fMemo"].forEach(i => $(i).value = "");
+  $("fCat").disabled = false; $("btnSplit").textContent = "Split";
+  $("splitBody").innerHTML = ""; $("splitBox").classList.add("hidden");
+  $("btnDelete").classList.add("hidden"); $("btnSave").textContent = "Record"; $("msg").textContent = "";
+  document.querySelectorAll("#regBody tr.editing").forEach(r => r.classList.remove("editing"));
+}
+$("btnClear").onclick = clearForm;
+
+function loadForm(id) {
+  const t = db.transactions.find(x => x.id === id);
+  clearForm(); editingId = id;
+  $("entryTitle").textContent = "Editing transaction" + (t.status === "R" ? " (reconciled)" : "");
+  $("fDate").value = t.date; $("fNum").value = t.num || ""; $("fPayee").value = t.payee || ""; $("fMemo").value = t.memo || "";
+  if (t.amount < 0) $("fPay").value = plain(t.amount); else $("fDep").value = plain(t.amount);
+  if (t.splits.length > 1) {
+    openSplit(false);
+    const dir = t.amount < 0 ? -1 : 1;
+    t.splits.forEach(s => { const shown = s.amount * dir; addSplitRow(catById(s.categoryId)?.name || "", s.memo, plain(shown), shown < 0); });
+    updateSplitSum();
+  } else $("fCat").value = catById(t.splits[0]?.categoryId)?.name || "";
+  $("btnDelete").classList.remove("hidden"); $("btnSave").textContent = "Save changes";
+  document.querySelector(`#regBody tr[data-id="${id}"]`)?.classList.add("editing");
+}
+
+$("fPay").addEventListener("input", () => { if ($("fPay").value) $("fDep").value = ""; updateSplitSum(); });
+$("fDep").addEventListener("input", () => { if ($("fDep").value) $("fPay").value = ""; updateSplitSum(); });
+/* Enter moves to the next box. Shift+Enter records the transaction. */
+function entryFields() {
+    // Order: Date, Num, Payee, Payment, Deposit, then back to Category, then Memo.
+  // Amount comes first so the Category list knows whether to show expense or income first.
+  const main = ["fDate", "fNum", "fPayee", "fPay", "fDep", "fCat", "fMemo"].map($)
+    .filter(el => !el.disabled && !(el.id === "fDep" && $("fPay").value.trim()));
+  const splitIns = splitOn ? [...document.querySelectorAll("#splitBody input")] : [];
+  return [...main, ...splitIns];
+}
+/* Ctrl+S opens the split lines (or jumps to them if already open) instead of Chrome's "Save page" */
+document.addEventListener("keydown", e => {
+  if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "s") return;
+  e.preventDefault();
+  if (!db || $("entry").classList.contains("hidden") || document.querySelector("dialog[open]")) return;
+  if (!splitOn) openSplit(true);
+  const first = document.querySelector("#splitBody .sCat"); if (first) { first.focus(); first.select(); }
+});
+$("entry").addEventListener("keydown", e => {
+  if (e.key !== "Enter" || e.target.tagName !== "INPUT") return;
+  e.preventDefault();
+  if (e.ctrlKey || e.shiftKey) { saveForm(); return; }  // Ctrl+Enter records (Shift+Enter also works)
+  const el = e.target;
+  // Short pause so a pick from the payee/category drop-down list lands first
+  setTimeout(() => {
+    const list = entryFields(), i = list.indexOf(el);
+    let next = list[i + 1];
+    // At the end of the last split line: add a new line if money is still left to assign
+    if (!next && splitOn && el.classList.contains("sAmt")) {
+      const total = parseMoney($("fPay").value || $("fDep").value) || 0;
+      const lines = readSplitRows().reduce((s, r) => s + (parseMoney(r.amt) || 0), 0);
+      if (total !== lines) { addSplitRow(); updateSplitSum(); next = document.querySelector("#splitBody tr:last-child .sCat"); }
+    }
+    (next || list[0]).focus();
+    if ((next || list[0]).select) (next || list[0]).select();
+  }, 0);
+});
+
+/* ---------- Splits ---------- */
+$("btnSplit").onclick = () => {
+  if (splitOn) {
+    const rows = readSplitRows();
+    if (rows.filter(r => r.cat || r.amt).length > 1 && !confirm("Remove the split lines and go back to one category?")) return;
+    splitOn = false; $("splitBox").classList.add("hidden"); $("splitBody").innerHTML = "";
+    $("fCat").disabled = false; $("fCat").value = rows[0]?.cat || ""; $("btnSplit").textContent = "Split";
+  } else openSplit(true);
+};
+function openSplit(seed) {
+  splitOn = true; $("splitBox").classList.remove("hidden"); $("btnSplit").textContent = "Remove split";
+  if (seed) { addSplitRow($("fCat").value, "", $("fPay").value || $("fDep").value); addSplitRow("", "", ""); }
+  $("fCat").value = "Split (see lines below)"; $("fCat").disabled = true;
+  updateSplitSum();
+}
+function addSplitRow(cat = "", memo = "", amt = "", negative = false) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td style="width:38%"><input class="sCat" placeholder="Category" autocomplete="off"></td>
+    <td><input class="sMemo" placeholder="Memo"></td>
+    <td style="width:120px"><input class="sAmt num" placeholder="Amount" inputmode="decimal" style="text-align:right"></td>
+    <td style="width:30px"><button class="x" title="Remove line">×</button></td>`;
+  tr.querySelector(".sCat").value = cat; tr.querySelector(".sMemo").value = memo || "";
+  tr.querySelector(".sAmt").value = amt ? (negative ? "-" : "") + amt : "";
+  tr.querySelector(".sAmt").oninput = updateSplitSum;
+  typeAhead(tr.querySelector(".sCat"), categoryNames);
+  tr.querySelector(".x").onclick = () => { tr.remove(); updateSplitSum(); };
+  $("splitBody").appendChild(tr);
+}
+function readSplitRows() {
+  return [...document.querySelectorAll("#splitBody tr")].map(tr => ({
+    cat: tr.querySelector(".sCat").value.trim(), memo: tr.querySelector(".sMemo").value.trim(), amt: tr.querySelector(".sAmt").value.trim()
+  }));
+}
+function updateSplitSum() {
+  if (!splitOn) return;
+  const total = parseMoney($("fPay").value || $("fDep").value) || 0;
+  const lines = readSplitRows().reduce((s, r) => s + (parseMoney(r.amt) || 0), 0);
+  const left = total - lines;
+  $("splitSum").innerHTML = `<button class="btn" id="btnAddLine">Add line</button>
+    <span>Lines total <b>${money(lines)}</b></span><span>Transaction <b>${money(total)}</b></span>
+    <span class="${left ? "bad" : "good"}">${left ? "Left to assign " + money(left) : "Balanced"}</span>
+    ${left ? `<button class="linkbtn" id="btnFill">Put the rest on the last line</button>` : ""}`;
+  $("btnAddLine").onclick = () => { addSplitRow(); updateSplitSum(); };
+  if ($("btnFill")) $("btnFill").onclick = () => {
+    const inputs = document.querySelectorAll("#splitBody .sAmt"); const lastIn = inputs[inputs.length - 1];
+    if (!lastIn) return;
+    const v = (parseMoney(lastIn.value) || 0) + left; lastIn.value = (v < 0 ? "-" : "") + (Math.abs(v) / 100).toFixed(2); updateSplitSum();
+  };
+}
+
+/* ---------- Record a transaction ---------- */
+function resolveCategory(name, isPayment) {
+  if (!name) return {id: null};
+  let c = catByName(name);
+  if (c) return {id: c.id};
+  const type = isPayment ? "Expense" : "Income";
+  if (!confirm(`"${name}" isn't a category yet.\n\nAdd it as a new ${type.toLowerCase()} category?`)) return null;
+  c = {id: uid(), name: name.trim(), type, hidden: false}; db.categories.push(c);
+  return {id: c.id};
+}
+
+function saveForm() {
+  const m = $("msg"); m.textContent = "";
+  const date = $("fDate").value;
+  const pay = parseMoney($("fPay").value), dep = parseMoney($("fDep").value);
+  if (!date) return m.textContent = "Enter a date.";
+  if (isNaN(pay) || isNaN(dep)) return m.textContent = "Amounts should be numbers, like 125.50.";
+  if (!pay && !dep) return m.textContent = "Enter a payment or a deposit amount.";
+  if (pay < 0 || dep < 0) return m.textContent = "Enter amounts without a minus sign. Use Payment or Deposit to set the direction.";
+  const isPayment = pay > 0, amount = isPayment ? -pay : dep, sign = isPayment ? -1 : 1;
+
+  let splits;
+  if (splitOn) {
+    const rows = readSplitRows().filter(r => r.cat || r.amt || r.memo);
+    if (rows.length < 2) return m.textContent = "A split needs at least two lines. Click Remove split to use one category.";
+    let sum = 0;
+    for (const r of rows) {
+      const v = parseMoney(r.amt);
+      if (isNaN(v) || !v) return m.textContent = "Every split line needs an amount.";
+      sum += v;
+    }
+    if (sum * sign !== amount) return m.textContent = "The split lines must add up to the transaction amount before you can record it.";
+    splits = [];
+    for (const r of rows) {
+      const c = resolveCategory(r.cat, isPayment); if (!c) return;
+      splits.push({categoryId: c.id, memo: r.memo, amount: parseMoney(r.amt) * sign});
+    }
+  } else {
+    const c = resolveCategory($("fCat").value.trim(), isPayment); if (!c) return;
+    splits = [{categoryId: c.id, memo: "", amount}];
+  }
+
+  const payee = $("fPayee").value.trim();
+  let t = editingId ? db.transactions.find(x => x.id === editingId) : null;
+  if (t && t.status === "R" && !confirm("This transaction was reconciled. Changing it can throw off your last reconcile.\n\nSave the change anyway?")) return;
+  if (!t) { t = {id: uid(), accountId: curAcct, seq: db.seq++, status: ""}; db.transactions.push(t); }
+  Object.assign(t, {date, num: $("fNum").value.trim(), payee, memo: $("fMemo").value.trim(), amount, splits});
+
+  const a = acct(curAcct); a.payees = a.payees || [];
+  if (payee && !a.payees.some(p => p.toLowerCase() === payee.toLowerCase())) a.payees.push(payee);
+
+  const wasNew = !editingId;
+  save(); clearForm(); $("fDate").value = date; renderAll();
+  if (wasNew) scrollToEnd();
+  $("fNum").focus();
+}
+$("btnSave").onclick = saveForm;
+
+$("btnDelete").onclick = () => {
+  const t = db.transactions.find(x => x.id === editingId); if (!t) return;
+  const warn = t.status === "R" ? "\n\nThis transaction was reconciled. Deleting it will throw off your last reconcile." : "";
+  if (!confirm(`Delete this ${money(Math.abs(t.amount))} transaction to ${t.payee || "(no payee)"}?${warn}`)) return;
+  db.transactions = db.transactions.filter(x => x.id !== t.id);
+  save(); clearForm(); renderAll();
+};
+
+/* ---------- Accounts ---------- */
+let renaming = false;
+function openAcctDialog(rename) {
+  renaming = !!rename;
+  $("dlgAcctTitle").textContent = renaming ? "Rename account" : "Add account";
+  $("aOk").textContent = renaming ? "Save" : "Add account";
+  $("aOpenFields").classList.toggle("hidden", renaming);
+  $("aName").value = renaming ? acct(curAcct).name : ""; $("aBal").value = ""; $("aDate").value = todayISO(); $("aMsg").textContent = "";
+  $("dlgAcct").showModal(); $("aName").focus();
+}
+$("btnAddAcct").onclick = () => openAcctDialog(false);
+$("btnRename").onclick = () => openAcctDialog(true);
+$("aCancel").onclick = () => $("dlgAcct").close();
+$("aOk").onclick = () => {
+  const name = $("aName").value.trim();
+  if (!name) return $("aMsg").textContent = "Enter a name for the account.";
+  if (db.accounts.some(a => a.name.toLowerCase() === name.toLowerCase() && !(renaming && a.id === curAcct))) return $("aMsg").textContent = "You already have an account with that name.";
+  if (renaming) { acct(curAcct).name = name; }
+  else {
+    const bal = parseMoney($("aBal").value);
+    if (isNaN(bal)) return $("aMsg").textContent = "Opening balance should be a number, like 1500.00.";
+    const a = {id: uid(), name, payees: []}; db.accounts.push(a); curAcct = a.id;
+    if (bal) {
+      let c = catByName("Opening Balance");
+      if (!c) { c = {id: uid(), name: "Opening Balance", type: "Other", hidden: false}; db.categories.push(c); }
+      db.transactions.push({id: uid(), accountId: a.id, seq: db.seq++, date: $("aDate").value || todayISO(), num: "", payee: "Opening Balance", memo: "", amount: bal, status: "c", splits: [{categoryId: c.id, memo: "", amount: bal}]});
+    }
+  }
+  $("dlgAcct").close(); save(); clearForm(); renderAll();
+};
+
+/* ---------- Categories ---------- */
+function renderCats() {
+  const used = {};
+  db.transactions.forEach(t => t.splits.forEach(s => { if (s.categoryId) used[s.categoryId] = (used[s.categoryId] || 0) + 1; }));
+  $("catList").innerHTML = db.categories.slice().sort((a, b) => a.name.localeCompare(b.name)).map(c => {
+    const depth = (c.name.match(/:/g) || []).length;
+    return `<div class="catRow ${c.hidden ? "hid" : ""}">
+      <span class="nm" style="padding-left:${depth * 16}px">${esc(c.name)}</span>
+      <span class="ty">${c.type}</span><span class="ct">${used[c.id] ? used[c.id] + " used" : ""}</span>
+      <button class="linkbtn" data-ren="${c.id}">Rename</button>
+      <button class="linkbtn" data-hide="${c.id}">${c.hidden ? "Show" : "Hide"}</button>
+      ${used[c.id] ? "" : `<button class="linkbtn" data-del="${c.id}" style="color:var(--red)">Delete</button>`}</div>`;
+  }).join("");
+  document.querySelectorAll("[data-ren]").forEach(b => b.onclick = () => {
+    const c = catById(b.dataset.ren); const n = prompt("New name for this category:", c.name);
+    if (!n || !n.trim()) return;
+    if (catByName(n) && catByName(n) !== c) return alert("A category with that name already exists.");
+    c.name = n.trim(); save(); renderCats(); renderAll();
+  });
+  document.querySelectorAll("[data-hide]").forEach(b => b.onclick = () => { const c = catById(b.dataset.hide); c.hidden = !c.hidden; save(); renderCats(); renderLists(); });
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+    const c = catById(b.dataset.del); if (!confirm(`Delete the category "${c.name}"?`)) return;
+    db.categories = db.categories.filter(x => x !== c); save(); renderCats(); renderLists();
+  });
+}
+$("btnCats").onclick = () => { renderCats(); $("cName").value = ""; $("cMsg").textContent = ""; $("dlgCats").showModal(); };
+$("cDone").onclick = () => $("dlgCats").close();
+$("cAdd").onclick = () => {
+  const n = $("cName").value.trim();
+  if (!n) return $("cMsg").textContent = "Enter a category name.";
+  if (catByName(n)) return $("cMsg").textContent = "That category already exists.";
+  db.categories.push({id: uid(), name: n, type: $("cType").value, hidden: false});
+  $("cName").value = ""; $("cMsg").textContent = ""; save(); renderCats(); renderLists();
+};
+
+/* ---------- Import from QuickBooks Desktop ----------
+   Reads the Journal report (every line of every transaction), groups lines by Trans #,
+   and rebuilds each check or deposit with its split lines. */
+function parseCSV(text) {
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ",") { row.push(f); f = ""; }
+    else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(f); rows.push(row); row = []; f = ""; }
+    else f += ch;
+  }
+  if (f !== "" || row.length) { row.push(f); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ""));
+}
+function tableFrom(rows) {
+  const head = rows[0].map(h => h.trim());
+  return rows.slice(1).map(r => Object.fromEntries(head.map((h, i) => [h, (r[i] ?? "").trim()])));
+}
+const qbDate = d => { const [m, dd, y] = d.split("/"); const yy = y.length === 2 ? "20" + y : y; return `${yy}-${m.padStart(2, "0")}-${dd.padStart(2, "0")}`; };
+
+/* Your choices for the names QuickBooks cut short */
+const QB_CHOICES = {"Auto": "Insurance:Auto", "No Tax": "Deposit:No Tax"};
+const QB_CHOICES_INCOME = {"Misc": "Deposit:Misc"};
+
+let imp = null;
+$("btnImport").onclick = () => {
+  imp = null; $("impFiles").value = ""; $("impMsg").textContent = "";
+  $("impStep1").classList.remove("hidden"); $("impStep2").classList.add("hidden"); $("impGo").classList.add("hidden");
+  $("dlgImport").showModal();
+};
+$("impCancel").onclick = () => $("dlgImport").close();
+
+$("impFiles").onchange = async () => {
+  $("impMsg").textContent = "";
+  imp = {journal: null, cats: null, vendors: null};
+  for (const file of $("impFiles").files) {
+    const rows = parseCSV(await file.text()); if (!rows.length) continue;
+    const head = rows[0].map(h => h.trim());
+    if (head.includes("Trans #") && head.includes("Account")) imp.journal = tableFrom(rows);
+    else if (head.includes("Vendor")) imp.vendors = tableFrom(rows);
+    else if (head.includes("Account") && head.includes("Type")) imp.cats = tableFrom(rows);
+  }
+  if (!imp.journal) return $("impMsg").textContent = "None of those files is the Journal (transactions) export. It's the one with a Trans # column.";
+  analyzeImport();
+};
+
+function analyzeImport() {
+  // Group lines into transactions
+  const groups = []; let cur = null;
+  for (const r of imp.journal) {
+    if (r["Trans #"]) { cur = {no: r["Trans #"], type: r["Type"], date: r["Date"], num: r["Num"], name: r["Name"], memo: r["Memo"], lines: []}; groups.push(cur); }
+    if (!cur || !r["Account"]) continue;           // skip total rows
+    cur.lines.push({acct: r["Account"], name: r["Name"], memo: r["Memo"], clr: r["Clr"], amt: parseMoney(r["Debit"]) - parseMoney(r["Credit"])});
+  }
+  // Bank accounts = accounts that appear on the first line of checks and deposits
+  const typeOf = {};
+  (imp.cats || []).forEach(c => typeOf[c["Account"]] = c["Type"]);
+  const bankCount = {};
+  groups.forEach(g => { if (/^(Check|Deposit|Bill Pmt|Transfer)/i.test(g.type) && g.lines[0]) bankCount[g.lines[0].acct] = (bankCount[g.lines[0].acct] || 0) + 1; });
+  let banks = Object.keys(bankCount);
+  if (imp.cats) banks = [...new Set([...banks, ...Object.keys(typeOf).filter(a => typeOf[a] === "Bank")])].filter(b => bankCount[b] || groups.some(g => g.lines.some(l => l.acct === b)));
+  imp.groups = groups; imp.banks = banks;
+
+  const summary = banks.map(b => {
+    let n = 0, splits = 0, rec = 0, bal = 0, min = "9999", max = "0000";
+    groups.forEach(g => {
+      const bl = g.lines.filter(l => l.acct === b); if (!bl.length) return;
+      n++; const d = qbDate(g.date); if (d < min) min = d; if (d > max) max = d;
+      bal += bl.reduce((s, l) => s + l.amt, 0);
+      if (g.lines.filter(l => l.acct !== b).length > 1) splits++;
+      if (bl[0].clr === "X") rec++;
+    });
+    return {b, n, splits, rec, bal, min, max};
+  });
+  const opts = b => `<option value="__new">New account named "${esc(b)}"</option>` +
+    db.accounts.map(a => `<option value="${a.id}" ${a.name.toLowerCase() === b.toLowerCase() ? "selected" : ""}>Into existing account: ${esc(a.name)}</option>`).join("") +
+    `<option value="__skip">Don't import this account</option>`;
+  $("impStep2").innerHTML = `
+    <p class="impNote">Here's what the file holds. Nothing has been saved yet.</p>
+    <table class="impTable"><tr><th>QuickBooks account</th><th>Transactions</th><th>Splits</th><th>Reconciled</th><th>Dates</th><th>Balance</th></tr>
+    ${summary.map(x => `<tr><td>${esc(x.b)}</td><td>${x.n}</td><td>${x.splits}</td><td>${x.rec}</td><td>${shortDate(x.min)} – ${shortDate(x.max)}</td><td class="num ${x.bal < 0 ? "neg" : ""}">${money(x.bal)}</td></tr>`).join("")}</table>
+    ${summary.map((x, i) => `<div class="f"><label>Where should "${esc(x.b)}" go?</label><select data-imp="${i}">${opts(x.b)}</select></div>`).join("")}
+    <p class="impNote">Compare the balance above with QuickBooks. After importing, the account in the sidebar should show the same number.
+    ${imp.vendors ? `The vendor list (${imp.vendors.length} names) will be added to the payee list.` : ""}
+    Anything already imported is skipped, so running this twice won't double up.</p>`;
+  $("impStep1").classList.add("hidden"); $("impStep2").classList.remove("hidden"); $("impGo").classList.remove("hidden");
+}
+
+function qbCategory(name, amount, typeOf, created) {
+  const leaf = name.split(":").pop();
+  const pick = QB_CHOICES[leaf] || (amount > 0 ? QB_CHOICES_INCOME[leaf] : null);
+  if (pick && catByName(pick)) return catByName(pick).id;
+  const exact = catByName(name); if (exact) return exact.id;
+  const matches = db.categories.filter(c => c.name.split(":").pop().toLowerCase() === leaf.toLowerCase());
+  if (matches.length === 1) return matches[0].id;
+  if (matches.length > 1) {
+    const want = amount > 0 ? "Income" : "Expense";
+    const byType = matches.filter(c => c.type === want);
+    return (byType[0] || matches[0]).id;
+  }
+  // Not in the list yet: add it
+  const qt = typeOf[name] || "";
+  const type = qt === "Income" ? "Income" : qt === "Expense" ? "Expense" : qt ? "Other"
+    : /equity|liabilit|receivable|payable|asset|saving/i.test(name) ? "Other" : amount > 0 ? "Income" : "Expense";
+  const c = {id: uid(), name, type, hidden: false}; db.categories.push(c); created.push(name);
+  return c.id;
+}
+
+$("impGo").onclick = () => {
+  const typeOf = {}; (imp.cats || []).forEach(c => typeOf[c["Account"]] = c["Type"]);
+  // Categories from the Account Listing that aren't in the checkbook yet
+  const created = [];
+  (imp.cats || []).forEach(c => {
+    if (!["Income", "Expense"].includes(c["Type"]) || catByName(c["Account"])) return;
+    db.categories.push({id: uid(), name: c["Account"], type: c["Type"], hidden: false}); created.push(c["Account"]);
+  });
+  const results = [];
+  imp.banks.forEach((b, i) => {
+    const choice = document.querySelector(`[data-imp="${i}"]`).value;
+    if (choice === "__skip") return;
+    let a = choice === "__new" ? null : acct(choice);
+    if (!a) { a = {id: uid(), name: b, payees: []}; db.accounts.push(a); }
+    a.payees = a.payees || [];
+    const have = new Set(db.transactions.filter(t => t.accountId === a.id && t.qbId).map(t => t.qbId));
+    let added = 0, skipped = 0;
+    for (const g of imp.groups) {
+      const bl = g.lines.filter(l => l.acct === b); if (!bl.length) continue;
+      const qbId = g.no + "|" + b;
+      if (have.has(qbId)) { skipped++; continue; }
+      const amount = bl.reduce((s, l) => s + l.amt, 0);
+      const others = g.lines.filter(l => l.acct !== b);
+      let payee = g.name || bl[0].name || "";
+      const detailNames = [...new Set(others.map(l => l.name).filter(Boolean))];
+      if ((!payee || payee === "Deposit") && detailNames.length === 1) payee = detailNames[0];
+      const splits = others.map(l => {
+        const amt = -l.amt;
+        let memo = l.memo && l.memo !== g.memo ? l.memo : "";
+        if (others.length > 1 && l.name && l.name !== payee) memo = memo ? `${l.name}: ${memo}` : l.name;
+        return {categoryId: qbCategory(l.acct, amt, typeOf, created), memo, amount: amt};
+      });
+      if (!splits.length) splits.push({categoryId: null, memo: "", amount});
+      const clr = bl[0].clr;
+      db.transactions.push({id: uid(), accountId: a.id, seq: db.seq++, qbId, date: qbDate(g.date), num: g.num || "",
+        payee, memo: g.memo || "", amount, status: clr === "X" ? "R" : clr ? "c" : "", splits});
+      if (payee && !a.payees.some(p => p.toLowerCase() === payee.toLowerCase())) a.payees.push(payee);
+      added++;
+    }
+    (imp.vendors || []).forEach(v => { const n = v["Vendor"]; if (n && !a.payees.some(p => p.toLowerCase() === n.toLowerCase())) a.payees.push(n); });
+    results.push({name: a.name, id: a.id, added, skipped, bal: balanceOf(a.id)});
+    curAcct = a.id;
+  });
+  save(); clearForm(); renderAll(); scrollToEnd();
+  $("impGo").classList.add("hidden");
+  $("impStep2").innerHTML = `<p class="impNote"><b>Import finished.</b></p>
+    <table class="impTable"><tr><th>Account</th><th>Added</th><th>Already there (skipped)</th><th>Balance now</th></tr>
+    ${results.map(r => `<tr><td>${esc(r.name)}</td><td>${r.added}</td><td>${r.skipped}</td><td class="num ${r.bal < 0 ? "neg" : ""}">${money(r.bal)}</td></tr>`).join("")}</table>
+    ${created.length ? `<p class="impNote">New categories added: ${created.map(esc).join(", ")}.</p>` : ""}
+    <p class="impNote">Check that "Balance now" matches QuickBooks.</p>`;
+};
+
+/* ---------- Sample data (for testing only) ---------- */
+function sampleDb() {
+  const d = newDb(); const a = {id: uid(), name: "Farm Checking (sample)", payees: []}; d.accounts.push(a);
+  const cat = n => d.categories.find(c => c.name === n).id;
+  const add = (date, num, payee, memo, amount, status, splits) => {
+    d.transactions.push({id: uid(), accountId: a.id, seq: d.seq++, date, num, payee, memo, amount, status,
+      splits: splits || [{categoryId: null, memo: "", amount}]});
+    if (payee && !a.payees.includes(payee)) a.payees.push(payee);
+  };
+  const one = (n, amt) => [{categoryId: cat(n), memo: "", amount: amt}];
+  add("2026-08-01", "", "Opening Balance", "", 1250000, "R", one("Deposit", 1250000));
+  add("2026-08-04", "1701", "Central Commodities", "Feed", -173594, "R", one("Farm Expenses:Feed", -173594));
+  add("2026-08-06", "1702", "Shelter Insurance", "2020 Chevy", -28524, "R", one("Insurance:Auto", -28524));
+  add("2026-08-10", "", "Deposit", "Steer calves", 1864220, "R", one("Farm Income:Calves", 1864220));
+  add("2026-08-14", "1703", "Maryville Vet Clinic", "Fall shots", -64210, "R", one("Farm Expenses:Vet", -64210));
+  add("2026-08-20", "1704", "Farmers Co-op", "Feed and fencing", -50000, "c",
+    [{categoryId: cat("Farm Expenses:Feed"), memo: "Range cubes", amount: -40000}, {categoryId: cat("Farm Expenses:Fencing"), memo: "Wire and posts", amount: -10000}]);
+  add("2026-08-28", "1705", "Nodaway Valley Bank", "Revolving loan payment", -250000, "c",
+    [{categoryId: cat("Loan Payment:Revolving Loan"), memo: "Principal", amount: -212000}, {categoryId: cat("Loan Payment:Olins:Interest"), memo: "Interest", amount: -38000}]);
+  add("2026-09-02", "1706", "Vit-A-Zine", "Mineral", -77250, "c", one("Farm Expenses:Mineral", -77250));
+  add("2026-09-10", "", "Deposit", "Hay sold", 210000, "", one("Farm Income:Hay", 210000));
+  add("2026-09-15", "1707", "Evergy", "Barn electric", -18744, "", one("Farm Expenses:Electric", -18744));
+  add("2026-09-19", "1708", "Casey's", "Truck fuel", -9215, "", one("Farm Expenses:Fuel, Gasoline, and Oil", -9215));
+  return d;
+}
+</script>
+</body>
+</html>
