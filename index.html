@@ -217,7 +217,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
     </div>
 
     <div id="entry">
-      <div id="keyHint">Enter: next box &nbsp;&nbsp; Ctrl+S: split &nbsp;&nbsp; Ctrl+Enter: record</div><div id="entryTitle">New transaction</div>
+      <div id="keyHint">+ / −: change date &nbsp;&nbsp; Enter: next box &nbsp;&nbsp; Ctrl+S: split &nbsp;&nbsp; Ctrl+Enter: record</div><div id="entryTitle">New transaction</div>
       <div class="frow">
         <div class="f"><label for="fDate">Date</label><input id="fDate" type="date"></div>
         <div class="f"><label for="fNum">Num</label><input id="fNum"></div>
@@ -499,7 +499,7 @@ function startApp() {
   curAcct = db.accounts[0]?.id || null;
   setStatus(sample ? "Nothing is saved" : "Saved");
   renderAll(); clearForm();
-  requestAnimationFrame(scrollToEnd);   // open at the newest entries
+  requestAnimationFrame(() => { scrollToEnd(); if (db.accounts.length) $("fDate").focus(); });   // open at the newest entries, cursor on Date
   if (!db.accounts.length) openAcctDialog();
 }
 
@@ -511,7 +511,7 @@ function renderSide() {
     const b = balanceOf(a.id);
     return `<button class="acct ${a.id === curAcct ? "on" : ""}" data-id="${a.id}"><span class="n">${esc(a.name)}</span><span class="b ${b < 0 ? "neg" : ""}">${money(b)}</span></button>`;
   }).join("");
-  document.querySelectorAll(".acct").forEach(b => b.onclick = () => { curAcct = b.dataset.id; clearForm(); renderAll(); scrollToEnd(); });
+  document.querySelectorAll(".acct").forEach(b => b.onclick = () => { curAcct = b.dataset.id; clearForm(); renderAll(); scrollToEnd(); $("fDate").focus(); });
 }
 
 function catLabel(t) {
@@ -648,7 +648,15 @@ function clearForm() {
   $("btnDelete").classList.add("hidden"); $("btnSave").textContent = "Record"; $("msg").textContent = "";
   document.querySelectorAll("#regBody tr.editing").forEach(r => r.classList.remove("editing"));
 }
-$("btnClear").onclick = clearForm;
+$("btnClear").onclick = () => { clearForm(); $("fDate").focus(); };
+
+/* Plus and minus keys move the date one day up or down (like QuickBooks) */
+$("fDate").addEventListener("keydown", e => {
+  const up = e.key === "+" || e.key === "=" , down = e.key === "-" || e.key === "_";
+  if (!up && !down) return;
+  e.preventDefault();
+  $("fDate").value = addDays($("fDate").value || todayISO(), up ? 1 : -1);
+});
 
 function loadForm(id) {
   const t = db.transactions.find(x => x.id === id);
@@ -809,7 +817,7 @@ function saveForm() {
   const wasNew = !editingId;
   save(); clearForm(); $("fDate").value = date; renderAll();
   if (wasNew) scrollToEnd();
-  $("fNum").focus();
+  $("fDate").focus();
 }
 $("btnSave").onclick = saveForm;
 
