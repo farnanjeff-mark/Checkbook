@@ -218,7 +218,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
     <div id="top">
       <div>
         <h2 id="acctName"></h2>
-        <button class="linkbtn" id="btnRename">Rename account</button>
+        <button class="linkbtn" id="btnRename">Account settings</button>
         <button class="linkbtn" id="btnDelAcct" style="color:var(--red);margin-left:12px">Delete account</button>
       </div>
       <div class="stat">Balance<b id="stBal"></b></div>
@@ -272,6 +272,9 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
 <dialog id="dlgAcct">
   <h3 id="dlgAcctTitle">Add account</h3>
   <div class="f"><label for="aName">Account name</label><input id="aName"></div>
+  <div class="f"><label for="aColor">Sidebar color</label>
+    <select id="aColor"><option value="green">Green</option><option value="blue">Blue</option><option value="purple">Purple</option>
+      <option value="teal">Teal</option><option value="red">Red</option><option value="brown">Brown</option><option value="gray">Gray</option></select></div>
   <div id="aOpenFields">
     <div class="f"><label for="aBal">Opening balance</label><input id="aBal" class="num" placeholder="0.00"></div>
     <div class="f"><label for="aDate">Opening balance date</label><input id="aDate" type="date"></div>
@@ -541,7 +544,7 @@ function fileNameFor(name, self) {
 }
 function bookFor(a) {
   const strip = x => { const {accountId, ...rest} = x; return rest; };
-  return {format: "checkbook-account", version: 2, account: {id: a.id, name: a.name, payees: a.payees || []},
+  return {format: "checkbook-account", version: 2, account: {id: a.id, name: a.name, color: a.color || "green", payees: a.payees || []},
     categories: acctCats(a.id).map(strip), transactions: acctTxns(a.id).map(strip),
     reconciles: (db.reconciles || []).filter(r => r.accountId === a.id).map(strip), recDraft: (db.recDrafts || {})[a.id] || null};
 }
@@ -610,7 +613,19 @@ function startApp() {
 /* ---------- Rendering ---------- */
 function renderAll() { renderSide(); renderRegister(); renderLists(); }
 
+/* Each account has its own sidebar color, so you can tell at a glance which checkbook you're in */
+const COLORS = {green: ["#2E7D4F", "#3C9160"], blue: ["#1F5A96", "#2E6DAD"], purple: ["#5E3C8F", "#7250A5"],
+  teal: ["#1F7575", "#2B8A8A"], red: ["#983030", "#AE4444"], brown: ["#7A5230", "#8E6441"], gray: ["#4A5560", "#5D6974"]};
+const FIRST_COLORS = {"farnan farms": "blue", "farnan daycare checking": "purple", "joan's savings": "purple"};
+function applyColor() {
+  const a = acct(curAcct);
+  if (a && !a.color) { a.color = FIRST_COLORS[a.name.toLowerCase()] || "green"; save(); }
+  const [c1, c2] = COLORS[(a && a.color) || "green"] || COLORS.green;
+  document.documentElement.style.setProperty("--side", c1);
+  document.documentElement.style.setProperty("--side2", c2);
+}
 function renderSide() {
+  applyColor();
   $("acctList").innerHTML = db.accounts.map(a => {
     const b = balanceOf(a.id);
     return `<button class="acct ${a.id === curAcct ? "on" : ""}" data-id="${a.id}"><span class="n">${esc(a.name)}</span><span class="b ${b < 0 ? "neg" : ""}">${money(b)}</span></button>`;
@@ -937,7 +952,8 @@ $("btnDelete").onclick = () => {
 let renaming = false;
 function openAcctDialog(rename) {
   renaming = !!rename;
-  $("dlgAcctTitle").textContent = renaming ? "Rename account" : "Add account";
+  $("dlgAcctTitle").textContent = renaming ? "Account settings" : "Add account";
+  $("aColor").value = renaming ? (acct(curAcct).color || "green") : "green";
   $("aOk").textContent = renaming ? "Save" : "Add account";
   $("aOpenFields").classList.toggle("hidden", renaming);
   $("aName").value = renaming ? acct(curAcct).name : ""; $("aBal").value = ""; $("aDate").value = todayISO(); $("aMsg").textContent = "";
@@ -968,14 +984,14 @@ $("aOk").onclick = () => {
   if (!name) return $("aMsg").textContent = "Enter a name for the account.";
   if (db.accounts.some(a => a.name.toLowerCase() === name.toLowerCase() && !(renaming && a.id === curAcct))) return $("aMsg").textContent = "You already have an account with that name.";
   if (renaming) {
-    const a = acct(curAcct); a.name = name;
+    const a = acct(curAcct); a.name = name; a.color = $("aColor").value;
     const f = fileNameFor(name, a);
     if (a.file && f !== a.file) { pendingRemovals.push({file: a.file}); a.file = f; }
   }
   else {
     const bal = parseMoney($("aBal").value);
     if (isNaN(bal)) return $("aMsg").textContent = "Opening balance should be a number, like 1500.00.";
-    const a = {id: uid(), name, payees: []}; db.accounts.push(a); curAcct = a.id;
+    const a = {id: uid(), name, color: $("aColor").value, payees: []}; db.accounts.push(a); curAcct = a.id;
     if (bal) {
       let c = catByName("Opening Balance");
       if (!c) c = addCat("Opening Balance", "Other");
