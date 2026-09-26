@@ -869,7 +869,6 @@ $("entry").addEventListener("keydown", e => {
   const el = e.target;
   // Short pause so a pick from the payee/category drop-down list lands first
   setTimeout(() => {
-    if (el.id === "fPayee") payeeAutoFill();   // fill in from the last time you used this payee
     const list = entryFields(), i = list.indexOf(el);
     let next = list[i + 1];
     // At the end of the last split line: add a new line if money is still left to assign
@@ -1010,9 +1009,8 @@ $("btnDelete").onclick = () => {
 
 /* ---------- Memorized transactions ----------
    Each account has its own list, saved in that account's file.
-   1. Typing a payee fills in the category, amount, memo and splits from the last time you used that payee.
-   2. Memorize (button, Ctrl+M or right-click a register line) saves a transaction to reuse, with how often it repeats.
-   3. Anything due in the next 2 weeks shows in a yellow bar above the register. Click Enter to put it
+   1. Memorize (button, Ctrl+M or right-click a register line) saves a transaction to reuse, with how often it repeats.
+   2. Anything due in the next 2 weeks shows in a yellow bar above the register. Click Enter to put it
       in the form, check it, then Record. Nothing is ever entered without your click. */
 const REMIND_DAYS = 14;
 const FREQS = {none: "Doesn't repeat", weekly: "Every week", biweekly: "Every 2 weeks", monthly: "Every month",
@@ -1040,7 +1038,7 @@ function stepDate(iso, freq, day) {
 }
 const nextDue = m => stepDate(m.next, m.freq, m.day);
 
-/* Put a past or memorized transaction's details into the entry form (not the date or check number). */
+/* Put a memorized transaction's details into the entry form (not the date or check number). */
 function fillFrom(src) {
   if (src.amount < 0) { $("fPay").value = plain(src.amount); $("fDep").value = ""; }
   else { $("fDep").value = plain(src.amount); $("fPay").value = ""; }
@@ -1056,15 +1054,6 @@ function fillFrom(src) {
   }
 }
 
-/* Auto-fill: only on a new transaction, and only if you haven't typed an amount or category yet. */
-function payeeAutoFill() {
-  const p = $("fPayee").value.trim();
-  if (!p || editingId || splitOn || $("fPay").value.trim() || $("fDep").value.trim() || $("fCat").value.trim()) return;
-  const last = sortTxns(acctTxns(curAcct).filter(t => sameName(t.payee, p))).pop()
-            || acctMems().find(m => sameName(m.payee, p));
-  if (last) fillFrom(last);
-}
-$("fPayee").addEventListener("change", payeeAutoFill);
 
 /* Yellow reminder bar above the register */
 function renderReminders() {
