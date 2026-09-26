@@ -1452,9 +1452,7 @@ function tableFrom(rows) {
 }
 const qbDate = d => { const [m, dd, y] = d.split("/"); const yy = y.length === 2 ? "20" + y : y; return `${yy}-${m.padStart(2, "0")}-${dd.padStart(2, "0")}`; };
 
-/* Your choices for the names QuickBooks cut short */
-const QB_CHOICES = {"Auto": "Insurance:Auto", "No Tax": "Deposit:No Tax"};
-const QB_CHOICES_INCOME = {"Misc": "Deposit:Misc"};
+
 
 let imp = null;
 $("btnImport").onclick = () => {
@@ -1522,10 +1520,8 @@ function analyzeImport() {
 
 function qbCategory(name, amount, typeOf, created) {
   const leaf = name.split(":").pop();
-  const pick = QB_CHOICES[leaf] || (amount > 0 ? QB_CHOICES_INCOME[leaf] : null);
-  if (pick && catByName(pick)) return catByName(pick).id;
-  const exact = catByName(name); if (exact) return exact.id;
-  const matches = acctCats().filter(c => c.name.split(":").pop().toLowerCase() === leaf.toLowerCase());
+  const exact = catByName(name); if (exact) return exact.id;   // full names always win
+  const matches = name.includes(":") ? [] : acctCats().filter(c => c.name.split(":").pop().toLowerCase() === leaf.toLowerCase());
   if (matches.length === 1) return matches[0].id;
   if (matches.length > 1) {
     const want = amount > 0 ? "Income" : "Expense";
