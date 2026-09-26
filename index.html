@@ -186,6 +186,22 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
 #ac div.on{background:var(--accent);color:#fff}
 #ac div:not(.on):hover{background:var(--ledger)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* memorized transactions */
+#remBar{background:#FFF6DC;border-bottom:1px solid #E8D59A;padding:8px 24px;font-size:14px}
+#remBar .rh{font-weight:600;margin-bottom:4px;color:#6B5310}
+.remItem{display:flex;align-items:center;gap:12px;padding:3px 0;flex-wrap:wrap}
+.remItem .due{width:150px;white-space:nowrap;color:var(--muted);font-size:13px}
+.remItem .due.late{color:var(--red);font-weight:600}
+.remItem .p{flex:1;min-width:140px}
+.remItem .amt{width:100px}
+.remItem .btn{padding:3px 12px;font-size:13px}
+.memT{width:100%;border-collapse:collapse;font-size:14px}
+.memT th{position:sticky;top:0;background:var(--headbg);color:var(--accent);font-size:12px;text-align:left;padding:6px 8px}
+.memT td{padding:6px 8px;border-bottom:1px solid var(--rule);vertical-align:middle}
+.memT tr:nth-child(even) td{background:var(--ledger)}
+.memT .late{color:var(--red);font-weight:600}
+.memT .acts{white-space:nowrap;text-align:right}
+.memT .acts .linkbtn{margin-left:10px}
 </style>
 </head>
 <body>
@@ -208,6 +224,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
     <button class="sidebtn" id="btnAddAcct">+ Add account</button>
     <button class="sidebtn" id="btnReports">Reports</button>
     <button class="sidebtn" id="btnPayees">Payees</button>
+    <button class="sidebtn" id="btnMemList">Memorized transactions</button>
     <button class="sidebtn" id="btnCats">Categories</button>
     <button class="sidebtn" id="btnImport">Import from QuickBooks</button>
     <div id="saveStatus"></div>
@@ -227,6 +244,8 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
       <input id="search" type="search" placeholder="Find payee, memo, amount…" style="margin-left:0">
     </div>
 
+    <div id="remBar" class="hidden"></div>
+
     <div id="regWrap">
       <table class="reg">
         <thead><tr>
@@ -240,7 +259,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
     </div>
 
     <div id="entry">
-      <div id="keyHint">+ / −: change date &nbsp;&nbsp; Enter: next box &nbsp;&nbsp; Ctrl+S: split &nbsp;&nbsp; Ctrl+Enter: record</div><div id="entryTitle">New transaction</div>
+      <div id="keyHint">+ / −: change date &nbsp;&nbsp; Enter: next box &nbsp;&nbsp; Ctrl+S: split &nbsp;&nbsp; Ctrl+M: memorize &nbsp;&nbsp; Ctrl+Enter: record</div><div id="entryTitle">New transaction</div>
       <div class="frow">
         <div class="f"><label for="fDate">Date</label><input id="fDate" type="date"></div>
         <div class="f"><label for="fNum">Num</label><input id="fNum"></div>
@@ -253,6 +272,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
         <div class="f"><label for="fMemo">Memo</label><input id="fMemo"></div>
         <div class="btns" style="padding-top:18px">
           <button class="btn" id="btnSplit">Split</button>
+          <button class="btn" id="btnMemorize" title="Save this transaction to reuse later (Ctrl+M)">Memorize</button>
           <button class="btn danger hidden" id="btnDelete">Delete</button>
           <button class="btn" id="btnClear">Clear</button>
           <button class="btn primary" id="btnSave">Record</button>
@@ -399,6 +419,28 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
   </div>
   <div class="btns" style="margin-top:12px"><button class="btn primary" id="pyDone">Done</button></div>
 </dialog>
+<dialog id="dlgMem" style="max-width:480px">
+  <h3 id="mTitle">Memorize transaction</h3>
+  <p class="impNote" id="mWhat"></p>
+  <div class="f"><label for="mFreq">How often</label>
+    <select id="mFreq">
+      <option value="none">Don't repeat (just keep it for quick use)</option>
+      <option value="weekly">Every week</option><option value="biweekly">Every 2 weeks</option>
+      <option value="monthly">Every month</option><option value="quarterly">Every 3 months</option>
+      <option value="semiannual">Every 6 months</option><option value="yearly">Every year</option>
+    </select></div>
+  <div class="f" id="mNextWrap"><label for="mNext">Next due date</label><input id="mNext" type="date"></div>
+  <div class="f hidden" id="mAmtWrap"><label for="mAmt">Amount</label><input id="mAmt" class="num" inputmode="decimal"></div>
+  <p class="impNote" id="mNote">You'll get a reminder at the top of the register 2 weeks before it's due.</p>
+  <div id="mMsg" style="color:var(--red);font-size:13px;min-height:1em"></div>
+  <div class="btns"><button class="btn" id="mCancel">Cancel</button><button class="btn primary" id="mOk">Memorize</button></div>
+</dialog>
+<dialog id="dlgMemList" style="max-width:960px;width:95vw">
+  <h3 id="mlTitle">Memorized transactions</h3>
+  <div style="max-height:60vh;overflow:auto;border:1px solid var(--rule);border-radius:6px"><table class="memT" id="mlTable"></table></div>
+  <p class="impNote">To add one, fill in a transaction below the register (or click one already in the register) and click <b>Memorize</b>. Right-clicking a register line works too.</p>
+  <div class="btns"><button class="btn primary" id="mlDone">Done</button></div>
+</dialog>
 <dialog id="dlgImport" style="max-width:680px">
   <h3>Import from QuickBooks</h3>
   <div id="impStep1">
@@ -442,10 +484,11 @@ const shortDate = iso => { const [y, m, d] = iso.split("-"); return `${m}/${d}/$
 
 /* ---------- State ---------- */
 let db = null, dirHandle = null, sample = false, curAcct = null, editingId = null, splitOn = false, saveTimer = null, savePending = false;
+let enteringMemo = null;   // id of the memorized transaction now in the entry form (from a reminder)
 
 /* In memory, all open accounts sit side by side, but each account is saved to its own
    file and has its own categories, payees, transactions and reconciles. Nothing is shared. */
-function newDb() { return {version: 2, seq: 1, accounts: [], categories: [], transactions: [], reconciles: [], recDrafts: {}}; }
+function newDb() { return {version: 2, seq: 1, accounts: [], categories: [], transactions: [], reconciles: [], recDrafts: {}, memorized: []}; }
 const acct = id => db.accounts.find(a => a.id === id);
 const catById = id => db.categories.find(c => c.id === id);
 const acctCats = (id = curAcct) => db.categories.filter(c => c.accountId === id);
@@ -498,6 +541,7 @@ function loadBook(data, file) {
   (data.categories || []).forEach(c => db.categories.push({...c, accountId: a.id}));
   (data.transactions || []).forEach(t => db.transactions.push({...t, accountId: a.id}));
   (data.reconciles || []).forEach(r => db.reconciles.push({...r, accountId: a.id}));
+  (data.memorized || []).forEach(m => db.memorized.push({...m, accountId: a.id}));
   if (data.recDraft) db.recDrafts[a.id] = data.recDraft;
 }
 /* Turn the old single checkbook.json into one file per account. The old file is kept in Backups. */
@@ -546,7 +590,8 @@ function bookFor(a) {
   const strip = x => { const {accountId, ...rest} = x; return rest; };
   return {format: "checkbook-account", version: 2, account: {id: a.id, name: a.name, color: a.color || "green", payees: a.payees || []},
     categories: acctCats(a.id).map(strip), transactions: acctTxns(a.id).map(strip),
-    reconciles: (db.reconciles || []).filter(r => r.accountId === a.id).map(strip), recDraft: (db.recDrafts || {})[a.id] || null};
+    reconciles: (db.reconciles || []).filter(r => r.accountId === a.id).map(strip),
+    memorized: (db.memorized || []).filter(m => m.accountId === a.id).map(strip), recDraft: (db.recDrafts || {})[a.id] || null};
 }
 let pendingRemovals = [];   // files of renamed or deleted accounts
 
@@ -642,6 +687,7 @@ function catLabel(t) {
 function renderRegister() {
   const a = acct(curAcct);
   $("top").classList.toggle("hidden", !a); $("entry").classList.toggle("hidden", !a);
+  if (!a) $("remBar").classList.add("hidden");
   if (!a) { $("regBody").innerHTML = ""; $("regEmpty").classList.remove("hidden"); $("regEmpty").textContent = "Add an account to get started."; return; }
   $("acctName").textContent = a.name;
   const bal = balanceOf(a.id), clr = clearedOf(a.id);
@@ -667,10 +713,14 @@ function renderRegister() {
       <td class="num ${run < 0 ? "neg" : ""}">${money(run)}</td></tr>`);
   }
   $("regBody").innerHTML = rows.join("");
+  renderReminders();
   const none = !rows.length;
   $("regEmpty").classList.toggle("hidden", !none);
   $("regEmpty").textContent = q ? "Nothing matches your search." : "No transactions yet. Enter one below and click Record.";
-  document.querySelectorAll("#regBody tr").forEach(tr => tr.onclick = e => { if (!e.target.closest("[data-clr]")) loadForm(tr.dataset.id); });
+  document.querySelectorAll("#regBody tr").forEach(tr => {
+    tr.onclick = e => { if (!e.target.closest("[data-clr]")) loadForm(tr.dataset.id); };
+    tr.oncontextmenu = e => { e.preventDefault(); loadForm(tr.dataset.id); openMemorize(); };   // right-click: memorize this one
+  });
   document.querySelectorAll("[data-clr]").forEach(b => b.onclick = () => toggleCleared(b.dataset.clr));
 }
 
@@ -758,7 +808,7 @@ function toggleCleared(id) {
 
 /* ---------- Entry form ---------- */
 function clearForm() {
-  editingId = null; splitOn = false;
+  editingId = null; splitOn = false; enteringMemo = null;
   $("entryTitle").textContent = "New transaction";
   $("fDate").value = $("fDate").value || todayISO();
   ["fNum", "fPayee", "fCat", "fPay", "fDep", "fMemo"].forEach(i => $(i).value = "");
@@ -819,6 +869,7 @@ $("entry").addEventListener("keydown", e => {
   const el = e.target;
   // Short pause so a pick from the payee/category drop-down list lands first
   setTimeout(() => {
+    if (el.id === "fPayee") payeeAutoFill();   // fill in from the last time you used this payee
     const list = entryFields(), i = list.indexOf(el);
     let next = list[i + 1];
     // At the end of the last split line: add a new line if money is still left to assign
@@ -893,47 +944,56 @@ function resolveCategory(name, isPayment) {
   return {id: c.id};
 }
 
-function saveForm() {
+/* Reads and checks the entry form. Returns the transaction's details, or nothing (with a message shown) if something's wrong. */
+function readForm() {
   const m = $("msg"); m.textContent = "";
   const date = $("fDate").value;
   const pay = parseMoney($("fPay").value), dep = parseMoney($("fDep").value);
-  if (!date) return m.textContent = "Enter a date.";
-  if (isNaN(pay) || isNaN(dep)) return m.textContent = "Amounts should be numbers, like 125.50.";
-  if (!pay && !dep) return m.textContent = "Enter a payment or a deposit amount.";
-  if (pay < 0 || dep < 0) return m.textContent = "Enter amounts without a minus sign. Use Payment or Deposit to set the direction.";
+  const bad = s => { m.textContent = s; return null; };
+  if (!date) return bad("Enter a date.");
+  if (isNaN(pay) || isNaN(dep)) return bad("Amounts should be numbers, like 125.50.");
+  if (!pay && !dep) return bad("Enter a payment or a deposit amount.");
+  if (pay < 0 || dep < 0) return bad("Enter amounts without a minus sign. Use Payment or Deposit to set the direction.");
   const isPayment = pay > 0, amount = isPayment ? -pay : dep, sign = isPayment ? -1 : 1;
 
   let splits;
   if (splitOn) {
     const rows = readSplitRows().filter(r => r.cat || r.amt || r.memo);
-    if (rows.length < 2) return m.textContent = "A split needs at least two lines. Click Remove split to use one category.";
+    if (rows.length < 2) return bad("A split needs at least two lines. Click Remove split to use one category.");
     let sum = 0;
     for (const r of rows) {
       const v = parseMoney(r.amt);
-      if (isNaN(v) || !v) return m.textContent = "Every split line needs an amount.";
+      if (isNaN(v) || !v) return bad("Every split line needs an amount.");
       sum += v;
     }
-    if (sum * sign !== amount) return m.textContent = "The split lines must add up to the transaction amount before you can record it.";
+    if (sum * sign !== amount) return bad("The split lines must add up to the transaction amount.");
     splits = [];
     for (const r of rows) {
-      const c = resolveCategory(r.cat, isPayment); if (!c) return;
+      const c = resolveCategory(r.cat, isPayment); if (!c) return null;
       splits.push({categoryId: c.id, memo: r.memo, amount: parseMoney(r.amt) * sign});
     }
   } else {
-    const c = resolveCategory($("fCat").value.trim(), isPayment); if (!c) return;
+    const c = resolveCategory($("fCat").value.trim(), isPayment); if (!c) return null;
     splits = [{categoryId: c.id, memo: "", amount}];
   }
+  return {date, num: $("fNum").value.trim(), payee: $("fPayee").value.trim(), memo: $("fMemo").value.trim(), amount, splits};
+}
 
-  const payee = $("fPayee").value.trim();
+function saveForm() {
+  const f = readForm(); if (!f) return;
+  const {date, payee, amount, splits} = f;
   let t = editingId ? db.transactions.find(x => x.id === editingId) : null;
   if (t && t.status === "R" && !confirm("This transaction was reconciled. Changing it can throw off your last reconcile.\n\nSave the change anyway?")) return;
   if (!t) { t = {id: uid(), accountId: curAcct, seq: db.seq++, status: ""}; db.transactions.push(t); }
-  Object.assign(t, {date, num: $("fNum").value.trim(), payee, memo: $("fMemo").value.trim(), amount, splits});
+  Object.assign(t, f);
 
   const a = acct(curAcct); a.payees = a.payees || [];
   if (payee && !a.payees.some(p => p.toLowerCase() === payee.toLowerCase())) a.payees.push(payee);
 
   const wasNew = !editingId;
+  // Entered from a reminder: move that memorized transaction on to its next due date
+  const mem = wasNew && enteringMemo ? memById(enteringMemo) : null;
+  if (mem && mem.freq !== "none") mem.next = nextDue(mem);
   save(); clearForm(); $("fDate").value = date; renderAll();
   if (wasNew) scrollToEnd();
   $("fDate").focus();
@@ -947,6 +1007,199 @@ $("btnDelete").onclick = () => {
   db.transactions = db.transactions.filter(x => x.id !== t.id);
   save(); clearForm(); renderAll();
 };
+
+/* ---------- Memorized transactions ----------
+   Each account has its own list, saved in that account's file.
+   1. Typing a payee fills in the category, amount, memo and splits from the last time you used that payee.
+   2. Memorize (button, Ctrl+M or right-click a register line) saves a transaction to reuse, with how often it repeats.
+   3. Anything due in the next 2 weeks shows in a yellow bar above the register. Click Enter to put it
+      in the form, check it, then Record. Nothing is ever entered without your click. */
+const REMIND_DAYS = 14;
+const FREQS = {none: "Doesn't repeat", weekly: "Every week", biweekly: "Every 2 weeks", monthly: "Every month",
+  quarterly: "Every 3 months", semiannual: "Every 6 months", yearly: "Every year"};
+const memById = id => (db.memorized || []).find(m => m.id === id);
+const acctMems = (id = curAcct) => (db.memorized || []).filter(m => m.accountId === id);
+
+/* Next due date. Monthly items keep their day of the month (a bill due the 31st is due the 30th in a 30-day month). */
+function addMonthsKeepDay(iso, n, day) {
+  const [y, m] = iso.split("-").map(Number);
+  const d = new Date(y, m - 1 + n, 1), last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(Math.min(day, last)).padStart(2, "0")}`;
+}
+function stepDate(iso, freq, day) {
+  day = day || +iso.slice(8, 10);
+  switch (freq) {
+    case "weekly": return addDays(iso, 7);
+    case "biweekly": return addDays(iso, 14);
+    case "monthly": return addMonthsKeepDay(iso, 1, day);
+    case "quarterly": return addMonthsKeepDay(iso, 3, day);
+    case "semiannual": return addMonthsKeepDay(iso, 6, day);
+    case "yearly": return addMonthsKeepDay(iso, 12, day);
+    default: return iso;
+  }
+}
+const nextDue = m => stepDate(m.next, m.freq, m.day);
+
+/* Put a past or memorized transaction's details into the entry form (not the date or check number). */
+function fillFrom(src) {
+  if (src.amount < 0) { $("fPay").value = plain(src.amount); $("fDep").value = ""; }
+  else { $("fDep").value = plain(src.amount); $("fPay").value = ""; }
+  $("fMemo").value = src.memo || "";
+  if (src.splits.length > 1) {
+    openSplit(false); $("splitBody").innerHTML = "";
+    const dir = src.amount < 0 ? -1 : 1;
+    src.splits.forEach(s => { const shown = s.amount * dir; addSplitRow(catById(s.categoryId)?.name || "", s.memo, plain(shown), shown < 0); });
+    updateSplitSum();
+  } else {
+    if (splitOn) { splitOn = false; $("splitBox").classList.add("hidden"); $("splitBody").innerHTML = ""; $("fCat").disabled = false; $("btnSplit").textContent = "Split"; }
+    $("fCat").value = catById(src.splits[0]?.categoryId)?.name || "";
+  }
+}
+
+/* Auto-fill: only on a new transaction, and only if you haven't typed an amount or category yet. */
+function payeeAutoFill() {
+  const p = $("fPayee").value.trim();
+  if (!p || editingId || splitOn || $("fPay").value.trim() || $("fDep").value.trim() || $("fCat").value.trim()) return;
+  const last = sortTxns(acctTxns(curAcct).filter(t => sameName(t.payee, p))).pop()
+            || acctMems().find(m => sameName(m.payee, p));
+  if (last) fillFrom(last);
+}
+$("fPayee").addEventListener("change", payeeAutoFill);
+
+/* Yellow reminder bar above the register */
+function renderReminders() {
+  const bar = $("remBar"), today = todayISO(), until = addDays(today, REMIND_DAYS);
+  const due = acctMems().filter(m => m.freq !== "none" && m.next && m.next <= until).sort((a, b) => a.next < b.next ? -1 : 1);
+  bar.classList.toggle("hidden", !due.length);
+  if (!due.length) { bar.innerHTML = ""; return; }
+  bar.innerHTML = `<div class="rh">Coming due in the next 2 weeks</div>` + due.map(m => {
+    const late = m.next < today;
+    return `<div class="remItem"><span class="due ${late ? "late" : ""}">${late ? "Past due " : "Due "}${shortDate(m.next)}</span>
+      <span class="p">${esc(m.payee)}</span><span class="amt num ${m.amount < 0 ? "" : ""}">${m.amount < 0 ? "Pay " : "Deposit "}${money(Math.abs(m.amount))}</span>
+      <button class="btn primary" data-rem-enter="${m.id}">Enter</button><button class="btn" data-rem-skip="${m.id}">Skip</button></div>`;
+  }).join("");
+  bar.querySelectorAll("[data-rem-enter]").forEach(b => b.onclick = () => enterMemo(b.dataset.remEnter));
+  bar.querySelectorAll("[data-rem-skip]").forEach(b => b.onclick = () => skipMemo(b.dataset.remSkip));
+}
+
+/* Put a memorized transaction in the entry form so you can check it and click Record. */
+function enterMemo(id) {
+  const m = memById(id); if (!m) return;
+  clearForm();
+  $("fDate").value = m.freq !== "none" && m.next ? m.next : todayISO();
+  $("fPayee").value = m.payee || ""; $("fNum").value = "";
+  fillFrom(m);
+  enteringMemo = id;
+  $("entryTitle").textContent = `New transaction from memorized "${m.payee}": check it, then click Record`;
+  const f = $("fPay").value ? $("fPay") : $("fDep"); f.focus(); f.select();
+}
+function skipMemo(id) {
+  const m = memById(id); if (!m) return;
+  if (!confirm(`Skip the ${shortDate(m.next)} ${m.payee} (${money(Math.abs(m.amount))})?\n\nNothing is entered. The next due date moves to ${shortDate(nextDue(m))}.`)) return;
+  m.next = nextDue(m); save(); renderReminders(); if ($("dlgMemList").open) renderMemList();
+}
+
+/* Memorize dialog: new (from the entry form) or editing one already on the list */
+let memDraft = null, memEditId = null, memNextTouched = false;
+function openMemorize(editId) {
+  if (!db || !acct(curAcct)) return;
+  memEditId = editId || null; memNextTouched = false;
+  $("mMsg").textContent = "";
+  if (memEditId) {
+    const m = memById(memEditId);
+    memDraft = null;
+    $("mTitle").textContent = "Edit memorized transaction";
+    $("mWhat").innerHTML = memSummary(m);
+    $("mFreq").value = m.freq; $("mNext").value = m.next || todayISO();
+    $("mAmtWrap").classList.toggle("hidden", m.splits.length > 1);
+    $("mAmt").value = plain(m.amount);
+    $("mOk").textContent = "Save";
+  } else {
+    const f = readForm(); if (!f) return;
+    if (!f.payee) { $("msg").textContent = "Enter a payee before memorizing."; $("fPayee").focus(); return; }
+    memDraft = f;
+    const old = acctMems().find(m => sameName(m.payee, f.payee));
+    if (old && !confirm(`"${old.payee}" is already memorized.\n\nReplace it with this one?`)) return;
+    $("mTitle").textContent = "Memorize transaction";
+    $("mWhat").innerHTML = memSummary(f);
+    $("mFreq").value = old ? old.freq : "monthly";
+    $("mNext").value = stepDate(f.date, $("mFreq").value);
+    $("mAmtWrap").classList.add("hidden");
+    $("mOk").textContent = "Memorize";
+  }
+  memFreqChanged(); $("dlgMem").showModal(); $("mFreq").focus();
+}
+function memSummary(m) {
+  const cat = m.splits.length > 1 ? `split into ${m.splits.length} categories` : esc(catById(m.splits[0]?.categoryId)?.name || "no category");
+  return `<b>${esc(m.payee)}</b>: ${m.amount < 0 ? "payment" : "deposit"} of <b>${money(Math.abs(m.amount))}</b>, ${cat}${m.memo ? `, memo "${esc(m.memo)}"` : ""}.`;
+}
+function memFreqChanged() {
+  const none = $("mFreq").value === "none";
+  $("mNextWrap").classList.toggle("hidden", none); $("mNote").classList.toggle("hidden", none);
+  if (memDraft && !memNextTouched && !none) $("mNext").value = stepDate(memDraft.date, $("mFreq").value);
+}
+$("mFreq").onchange = memFreqChanged;
+$("mNext").oninput = () => memNextTouched = true;
+$("mCancel").onclick = () => $("dlgMem").close();
+$("mOk").onclick = () => {
+  const freq = $("mFreq").value, next = freq === "none" ? "" : $("mNext").value;
+  if (freq !== "none" && !next) return $("mMsg").textContent = "Enter the next due date.";
+  const day = next ? +next.slice(8, 10) : null;
+  if (memEditId) {
+    const m = memById(memEditId);
+    if (m.splits.length === 1) {
+      const v = parseMoney($("mAmt").value);
+      if (isNaN(v) || v <= 0) return $("mMsg").textContent = "Enter the amount without a minus sign, like 125.50.";
+      const amount = m.amount < 0 ? -v : v; m.amount = amount; m.splits[0].amount = amount;
+    }
+    Object.assign(m, {freq, next, day});
+  } else {
+    const f = memDraft, old = acctMems().find(m => sameName(m.payee, f.payee));
+    const m = {id: old ? old.id : uid(), accountId: curAcct, payee: f.payee, memo: f.memo, amount: f.amount, splits: f.splits, freq, next, day};
+    db.memorized = db.memorized || [];
+    if (old) db.memorized[db.memorized.indexOf(old)] = m; else db.memorized.push(m);
+    const a = acct(curAcct); a.payees = a.payees || [];
+    if (!a.payees.some(p => sameName(p, f.payee))) a.payees.push(f.payee);
+    $("msg").innerHTML = `<span style="color:var(--accent)">Memorized "${esc(f.payee)}". It's still in the form if you want to record it now.</span>`;
+  }
+  $("dlgMem").close(); save(); renderReminders(); if ($("dlgMemList").open) renderMemList();
+};
+$("btnMemorize").onclick = () => openMemorize();
+/* Ctrl+M memorizes what's in the entry form */
+document.addEventListener("keydown", e => {
+  if (!e.ctrlKey || e.key.toLowerCase() !== "m") return;
+  e.preventDefault();
+  if (!db || $("entry").classList.contains("hidden") || document.querySelector("dialog[open]")) return;
+  openMemorize();
+});
+
+/* The memorized list for the account you're in */
+function renderMemList() {
+  const today = todayISO();
+  const list = acctMems().slice().sort((a, b) => a.payee.localeCompare(b.payee));
+  $("mlTable").innerHTML = `<tr><th>Payee</th><th>Category</th><th class="num">Payment</th><th class="num">Deposit</th><th>Repeats</th><th>Next due</th><th></th></tr>` +
+    (list.length ? list.map(m => `<tr>
+      <td>${esc(m.payee)}${m.memo ? `<div class="impNote" style="margin:0">${esc(m.memo)}</div>` : ""}</td>
+      <td>${catLabel(m)}</td>
+      <td class="num">${m.amount < 0 ? money(-m.amount) : ""}</td><td class="num">${m.amount > 0 ? money(m.amount) : ""}</td>
+      <td>${FREQS[m.freq] || ""}</td>
+      <td class="${m.next && m.next < today ? "late" : ""}">${m.freq !== "none" && m.next ? shortDate(m.next) : ""}</td>
+      <td class="acts"><button class="linkbtn" data-ml-enter="${m.id}">Enter</button><button class="linkbtn" data-ml-edit="${m.id}">Edit</button><button class="linkbtn" data-ml-del="${m.id}" style="color:var(--red)">Delete</button></td></tr>`).join("")
+    : `<tr><td colspan="7" class="impNote" style="padding:14px">Nothing memorized in this account yet.</td></tr>`);
+  document.querySelectorAll("[data-ml-enter]").forEach(b => b.onclick = () => { $("dlgMemList").close(); enterMemo(b.dataset.mlEnter); });
+  document.querySelectorAll("[data-ml-edit]").forEach(b => b.onclick = () => openMemorize(b.dataset.mlEdit));
+  document.querySelectorAll("[data-ml-del]").forEach(b => b.onclick = () => {
+    const m = memById(b.dataset.mlDel);
+    if (!confirm(`Delete the memorized transaction for "${m.payee}"?\n\nTransactions already in the register are not changed.`)) return;
+    db.memorized = db.memorized.filter(x => x !== m); save(); renderMemList(); renderReminders();
+  });
+}
+$("btnMemList").onclick = () => {
+  if (!acct(curAcct)) return;
+  $("mlTitle").textContent = "Memorized transactions for " + acct(curAcct).name;
+  renderMemList(); $("dlgMemList").showModal();
+};
+$("mlDone").onclick = () => $("dlgMemList").close();
 
 /* ---------- Accounts ---------- */
 let renaming = false;
@@ -974,6 +1227,7 @@ $("btnDelAcct").onclick = () => {
   db.categories = db.categories.filter(c => c.accountId !== a.id);
   db.reconciles = (db.reconciles || []).filter(r => r.accountId !== a.id);
   delete (db.recDrafts || {})[a.id];
+  db.memorized = (db.memorized || []).filter(m => m.accountId !== a.id);
   db.accounts = db.accounts.filter(x => x.id !== a.id);
   curAcct = db.accounts[0]?.id || null;
   save(); clearForm(); renderAll(); scrollToEnd();
@@ -1004,7 +1258,7 @@ $("aOk").onclick = () => {
 /* ---------- Categories ---------- */
 function renderCats() {
   const used = {};
-  db.transactions.forEach(t => t.splits.forEach(s => { if (s.categoryId) used[s.categoryId] = (used[s.categoryId] || 0) + 1; }));
+  [...db.transactions, ...(db.memorized || [])].forEach(t => t.splits.forEach(s => { if (s.categoryId) used[s.categoryId] = (used[s.categoryId] || 0) + 1; }));
   $("catList").innerHTML = acctCats().slice().sort((a, b) => a.name.localeCompare(b.name)).map(c => {
     const depth = (c.name.match(/:/g) || []).length;
     return `<div class="catRow ${c.hidden ? "hid" : ""}">
@@ -1435,6 +1689,7 @@ $("pyRename").onclick = () => {
   const finalName = existing ? existing.name : n;
   let moved = 0;
   acctTxns(a.id).forEach(t => { if (sameName(t.payee, old)) { t.payee = finalName; moved++; } });
+  acctMems(a.id).forEach(mm => { if (sameName(mm.payee, old)) mm.payee = finalName; });
   a.payees = (a.payees || []).filter(p => !sameName(p, old));
   if (!a.payees.some(p => sameName(p, finalName))) a.payees.push(finalName);
   pySel = finalName; $("pySearch").value = ""; save(); renderPayeeList(); renderPayeeDetail(); renderRegister();
