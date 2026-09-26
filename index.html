@@ -174,7 +174,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
     <h2>Checkbook</h2>
     <p>Your records are saved in a folder on this computer. Nothing is sent over the internet.</p>
     <button class="btn primary hidden" id="btnReopen">Open my checkbook<small id="reopenName"></small></button>
-    <button class="btn" id="btnPick">Choose a folder<small>Pick an existing checkbook folder, or an empty one to start new</small></button>
+    <button class="btn" id="btnPick">Choose a folder<small>Pick your Checkbook folder, or an empty one to start new</small></button>
     <div id="startErr"></div>
   </div>
 </div>
@@ -360,7 +360,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
   <div class="btns"><button class="btn" id="impCancel">Close</button><button class="btn primary hidden" id="impGo">Import</button></div>
 </dialog>
 <dialog id="dlgCats" style="max-width:640px">
-  <h3>Categories</h3>
+  <h3 id="catTitle">Categories</h3>
   <div id="catList"></div>
   <div class="catAdd">
     <div class="f"><label for="cName">New category (use a colon for a subcategory, like Farm Expenses:Feed)</label><input id="cName"></div>
@@ -372,10 +372,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
 </dialog>
 
 <script>
-/* ---------- Your QuickBooks categories (I = Income, E = Expense) ---------- */
-const QB_CATEGORIES = [["Agricultural Program Payments","I"],["Deposit","I"],["Deposit:Dividends","I"],["Deposit:Gift","I"],["Deposit:Misc","I"],["Deposit:No Tax","I"],["Deposit:Refund","I"],["Deposit:Stimulus","I"],["Deposit:Tax Refund","I"],["Farm Income","I"],["Farm Income:Calves","I"],["Farm Income:Cattle","I"],["Farm Income:Cows","I"],["Farm Income:Custom","I"],["Farm Income:Hay","I"],["Farm Income:Misc","I"],["Farm Income:No Tax","I"],["Farm Income:No Tax:Calves Boys","I"],["Farm Income:No Tax:Cows Boys","I"],["Farm Income:Raised heifers 2 years old","I"],["Farm Income:Reimbursement","I"],["Loan Proceeds","I"],["Loan Proceeds:Revolving Loan","I"],["Salary SSM","I"],["Accounting Services","E"],["Auto","E"],["Auto:Car and Truck Expenses","E"],["Auto:Down Payment","E"],["Auto:License","E"],["Auto:Payment","E"],["Auto:Repair","E"],["Bank Service Charges","E"],["Clothing","E"],["Computer and Internet Expenses","E"],["Contribution","E"],["Daycare Expenses","E"],["Dining","E"],["Donation","E"],["Dues","E"],["Farm Expenses","E"],["Farm Expenses:Apparel","E"],["Farm Expenses:ATV","E"],["Farm Expenses:Cattle","E"],["Farm Expenses:Cattle Reimbursement","E"],["Farm Expenses:Chemicals Purchased","E"],["Farm Expenses:Dirt Work","E"],["Farm Expenses:Dozing","E"],["Farm Expenses:Electric","E"],["Farm Expenses:Feed","E"],["Farm Expenses:Fencing","E"],["Farm Expenses:Fertilizers and Lime","E"],["Farm Expenses:Freight and Trucking","E"],["Farm Expenses:Fuel, Gasoline, and Oil","E"],["Farm Expenses:Gravel","E"],["Farm Expenses:Hay","E"],["Farm Expenses:Labor","E"],["Farm Expenses:Land","E"],["Farm Expenses:Maintenance","E"],["Farm Expenses:Meds","E"],["Farm Expenses:Mineral","E"],["Farm Expenses:Moco 946","E"],["Farm Expenses:Mower","E"],["Farm Expenses:Pasture Rent","E"],["Farm Expenses:Rock","E"],["Farm Expenses:Seed","E"],["Farm Expenses:Shed","E"],["Farm Expenses:Supplies","E"],["Farm Expenses:Tires","E"],["Farm Expenses:Tractor","E"],["Farm Expenses:Trailer","E"],["Farm Expenses:Trucking","E"],["Farm Expenses:Vet","E"],["Home","E"],["Home:Mortgage","E"],["Insurance","E"],["Insurance:Auto","E"],["Insurance:Farm","E"],["Insurance:Health","E"],["Insurance:Home Owner","E"],["Insurance:Inland Marine","E"],["Insurance:Life","E"],["Loan Payment","E"],["Loan Payment:333g","E"],["Loan Payment:Olins","E"],["Loan Payment:Olins:Interest","E"],["Loan Payment:Olins:Principle","E"],["Loan Payment:Revolving Loan","E"],["Medical","E"],["Misc","E"],["MO Rep","E"],["MO Rep:Milage","E"],["MO Rep:Per Diam","E"],["MO Rep:Salary","E"],["Payroll Expenses","E"],["Professional Fees","E"],["Reconciliation Discrepancies","E"],["Rent Expense","E"],["Repairs and Maintenance","E"],["Taxes","E"],["Taxes:Federal","E"],["Taxes:Property","E"],["Transfer to Account","E"],["Travel","E"],["Utilities","E"]];
-
-const DATA_FILE = "checkbook.json";
+const LEGACY_FILE = "checkbook.json";   // the old single-file checkbook, split up on first open
 const $ = id => document.getElementById(id);
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -395,15 +392,14 @@ const shortDate = iso => { const [y, m, d] = iso.split("-"); return `${m}/${d}/$
 /* ---------- State ---------- */
 let db = null, dirHandle = null, sample = false, curAcct = null, editingId = null, splitOn = false, saveTimer = null, savePending = false;
 
-function newDb() {
-  return {
-    version: 1, seq: 1, accounts: [], transactions: [],
-    categories: QB_CATEGORIES.map(([name, t]) => ({id: uid(), name, type: t === "I" ? "Income" : "Expense", hidden: false}))
-  };
-}
+/* In memory, all open accounts sit side by side, but each account is saved to its own
+   file and has its own categories, payees, transactions and reconciles. Nothing is shared. */
+function newDb() { return {version: 2, seq: 1, accounts: [], categories: [], transactions: [], reconciles: [], recDrafts: {}}; }
 const acct = id => db.accounts.find(a => a.id === id);
 const catById = id => db.categories.find(c => c.id === id);
-const catByName = n => db.categories.find(c => c.name.toLowerCase() === String(n).trim().toLowerCase());
+const acctCats = (id = curAcct) => db.categories.filter(c => c.accountId === id);
+const catByName = n => acctCats().find(c => c.name.toLowerCase() === String(n).trim().toLowerCase());
+function addCat(name, type) { const c = {id: uid(), accountId: curAcct, name: name.trim(), type, hidden: false}; db.categories.push(c); return c; }
 const acctTxns = id => db.transactions.filter(t => t.accountId === id);
 function sortTxns(list) {
   return list.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 :
@@ -429,30 +425,79 @@ async function kvGet(k) {
 async function openFolder(handle) {
   if ((await handle.queryPermission({mode: "readwrite"})) !== "granted" &&
       (await handle.requestPermission({mode: "readwrite"})) !== "granted") throw new Error("Permission to use the folder was not given.");
-  let text = null;
-  try { text = await (await (await handle.getFileHandle(DATA_FILE)).getFile()).text(); } catch (e) { /* no file yet: new checkbook */ }
-  if (text) {
-    db = JSON.parse(text);
-    await dailyBackup(handle, text);
-  } else {
-    db = newDb();
-  }
   dirHandle = handle; sample = false;
+  db = newDb(); let legacy = null;
+  for await (const [name, h] of handle.entries()) {
+    if (h.kind !== "file" || !name.toLowerCase().endsWith(".json")) continue;
+    const text = await (await h.getFile()).text();
+    let data; try { data = JSON.parse(text); } catch (e) { continue; }
+    if (name === LEGACY_FILE && Array.isArray(data.accounts)) { legacy = {text, data}; continue; }
+    if (data.format !== "checkbook-account") continue;
+    loadBook(data, name);
+    await dailyBackup(handle, name, text);
+  }
+  if (legacy && !db.accounts.length) await splitLegacy(legacy);
+  db.accounts.sort((a, b) => a.name.localeCompare(b.name));
+  db.seq = Math.max(1, ...db.transactions.map(t => t.seq || 0)) + 1;
   await kvSet("dir", handle);
-  if (!text) await writeNow();
   startApp();
 }
+function loadBook(data, file) {
+  const a = data.account; a.file = file; a.payees = a.payees || []; db.accounts.push(a);
+  (data.categories || []).forEach(c => db.categories.push({...c, accountId: a.id}));
+  (data.transactions || []).forEach(t => db.transactions.push({...t, accountId: a.id}));
+  (data.reconciles || []).forEach(r => db.reconciles.push({...r, accountId: a.id}));
+  if (data.recDraft) db.recDrafts[a.id] = data.recDraft;
+}
+/* Turn the old single checkbook.json into one file per account. The old file is kept in Backups. */
+async function splitLegacy({text, data}) {
+  const old = data;
+  old.accounts.forEach((a, i) => {
+    const map = {};
+    (old.categories || []).forEach(c => {
+      const id = i === 0 ? c.id : uid(); map[c.id] = id;
+      db.categories.push({id, accountId: a.id, name: c.name, type: c.type, hidden: !!c.hidden});
+    });
+    a.payees = a.payees || []; db.accounts.push(a);
+    (old.transactions || []).filter(t => t.accountId === a.id).forEach(t =>
+      db.transactions.push({...t, splits: t.splits.map(sp => ({...sp, categoryId: sp.categoryId ? map[sp.categoryId] || null : null}))}));
+    (old.reconciles || []).filter(r => r.accountId === a.id).forEach(r => db.reconciles.push(r));
+    if (old.recDrafts && old.recDrafts[a.id]) db.recDrafts[a.id] = old.recDrafts[a.id];
+  });
+  const ok = await writeNow();
+  if (!ok) return;
+  try {
+    const bdir = await dirHandle.getDirectoryHandle("Backups", {create: true});
+    const w = await (await bdir.getFileHandle(`checkbook-before-split-${todayISO()}.json`, {create: true})).createWritable();
+    await w.write(text); await w.close();
+    await dirHandle.removeEntry(LEGACY_FILE);
+  } catch (e) { console.warn("Could not move old checkbook.json", e); }
+}
 
-/* One dated copy per day, made before any changes that day. */
-async function dailyBackup(handle, text) {
+/* One dated copy of each account file per day, made before any changes that day. */
+async function dailyBackup(handle, file, text, tag) {
   try {
     const bdir = await handle.getDirectoryHandle("Backups", {create: true});
-    const name = `checkbook-${todayISO()}.json`;
-    try { await bdir.getFileHandle(name); return; } catch (e) {}
+    const name = `${file.replace(/\.json$/i, "")}-${tag ? tag + "-" : ""}${todayISO()}.json`;
+    if (!tag) { try { await bdir.getFileHandle(name); return; } catch (e) {} }
     const w = await (await bdir.getFileHandle(name, {create: true})).createWritable();
     await w.write(text); await w.close();
   } catch (e) { console.warn("Backup failed", e); }
 }
+
+function fileNameFor(name, self) {
+  const base = name.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim() || "Account";
+  let f = base + ".json", n = 2;
+  while (f.toLowerCase() === LEGACY_FILE || db.accounts.some(a => a !== self && (a.file || "").toLowerCase() === f.toLowerCase())) f = `${base} (${n++}).json`;
+  return f;
+}
+function bookFor(a) {
+  const strip = x => { const {accountId, ...rest} = x; return rest; };
+  return {format: "checkbook-account", version: 2, account: {id: a.id, name: a.name, payees: a.payees || []},
+    categories: acctCats(a.id).map(strip), transactions: acctTxns(a.id).map(strip),
+    reconciles: (db.reconciles || []).filter(r => r.accountId === a.id).map(strip), recDraft: (db.recDrafts || {})[a.id] || null};
+}
+let pendingRemovals = [];   // files of renamed or deleted accounts
 
 function save() {
   if (sample) return;
@@ -461,12 +506,21 @@ function save() {
 }
 async function writeNow() {
   try {
-    const w = await (await dirHandle.getFileHandle(DATA_FILE, {create: true})).createWritable();
-    await w.write(JSON.stringify(db, null, 1)); await w.close();
+    for (const a of db.accounts) {
+      if (!a.file) a.file = fileNameFor(a.name, a);
+      const w = await (await dirHandle.getFileHandle(a.file, {create: true})).createWritable();
+      await w.write(JSON.stringify(bookFor(a), null, 1)); await w.close();
+    }
+    for (const r of pendingRemovals.splice(0)) {
+      if (r.text) await dailyBackup(dirHandle, r.file, r.text, "deleted");
+      try { await dirHandle.removeEntry(r.file); } catch (e) {}
+    }
     savePending = false;
     setStatus("Saved " + new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}));
+    return true;
   } catch (e) {
     setStatus("Could not save. Check that the folder still exists, then reload.", true);
+    return false;
   }
 }
 function setStatus(s, bad) {
@@ -573,7 +627,7 @@ function categoryNames() {
   const dep = !!$("fDep").value.trim() && !$("fPay").value.trim();
   const pay = !!$("fPay").value.trim();
   const rank = c => (dep ? (c.type === "Income" ? 0 : 1) : pay ? (c.type === "Expense" ? 0 : 1) : 0);
-  return db.categories.filter(c => !c.hidden)
+  return acctCats().filter(c => !c.hidden)
     .sort((x, y) => rank(x) - rank(y) || x.name.localeCompare(y.name)).map(c => c.name);
 }
 let acInput = null, acItems = [], acOn = 0;
@@ -770,7 +824,7 @@ function resolveCategory(name, isPayment) {
   if (c) return {id: c.id};
   const type = isPayment ? "Expense" : "Income";
   if (!confirm(`"${name}" isn't a category yet.\n\nAdd it as a new ${type.toLowerCase()} category?`)) return null;
-  c = {id: uid(), name: name.trim(), type, hidden: false}; db.categories.push(c);
+  c = addCat(name, type);
   return {id: c.id};
 }
 
@@ -849,7 +903,11 @@ $("btnDelAcct").onclick = () => {
   const answer = prompt(`${warn}\n\nType YES to delete this account.`);
   if (answer === null) return;
   if (answer.trim().toUpperCase() !== "YES") return alert("Not deleted. You need to type YES to delete the account.");
+  if (a.file) pendingRemovals.push({file: a.file, text: JSON.stringify(bookFor(a), null, 1)});
   db.transactions = db.transactions.filter(t => t.accountId !== a.id);
+  db.categories = db.categories.filter(c => c.accountId !== a.id);
+  db.reconciles = (db.reconciles || []).filter(r => r.accountId !== a.id);
+  delete (db.recDrafts || {})[a.id];
   db.accounts = db.accounts.filter(x => x.id !== a.id);
   curAcct = db.accounts[0]?.id || null;
   save(); clearForm(); renderAll(); scrollToEnd();
@@ -859,14 +917,18 @@ $("aOk").onclick = () => {
   const name = $("aName").value.trim();
   if (!name) return $("aMsg").textContent = "Enter a name for the account.";
   if (db.accounts.some(a => a.name.toLowerCase() === name.toLowerCase() && !(renaming && a.id === curAcct))) return $("aMsg").textContent = "You already have an account with that name.";
-  if (renaming) { acct(curAcct).name = name; }
+  if (renaming) {
+    const a = acct(curAcct); a.name = name;
+    const f = fileNameFor(name, a);
+    if (a.file && f !== a.file) { pendingRemovals.push({file: a.file}); a.file = f; }
+  }
   else {
     const bal = parseMoney($("aBal").value);
     if (isNaN(bal)) return $("aMsg").textContent = "Opening balance should be a number, like 1500.00.";
     const a = {id: uid(), name, payees: []}; db.accounts.push(a); curAcct = a.id;
     if (bal) {
       let c = catByName("Opening Balance");
-      if (!c) { c = {id: uid(), name: "Opening Balance", type: "Other", hidden: false}; db.categories.push(c); }
+      if (!c) c = addCat("Opening Balance", "Other");
       db.transactions.push({id: uid(), accountId: a.id, seq: db.seq++, date: $("aDate").value || todayISO(), num: "", payee: "Opening Balance", memo: "", amount: bal, status: "c", splits: [{categoryId: c.id, memo: "", amount: bal}]});
     }
   }
@@ -877,7 +939,7 @@ $("aOk").onclick = () => {
 function renderCats() {
   const used = {};
   db.transactions.forEach(t => t.splits.forEach(s => { if (s.categoryId) used[s.categoryId] = (used[s.categoryId] || 0) + 1; }));
-  $("catList").innerHTML = db.categories.slice().sort((a, b) => a.name.localeCompare(b.name)).map(c => {
+  $("catList").innerHTML = acctCats().slice().sort((a, b) => a.name.localeCompare(b.name)).map(c => {
     const depth = (c.name.match(/:/g) || []).length;
     return `<div class="catRow ${c.hidden ? "hid" : ""}">
       <span class="nm" style="padding-left:${depth * 16}px">${esc(c.name)}</span>
@@ -898,13 +960,13 @@ function renderCats() {
     db.categories = db.categories.filter(x => x !== c); save(); renderCats(); renderLists();
   });
 }
-$("btnCats").onclick = () => { renderCats(); $("cName").value = ""; $("cMsg").textContent = ""; $("dlgCats").showModal(); };
+$("btnCats").onclick = () => { if (!acct(curAcct)) return; $("catTitle").textContent = "Categories for " + acct(curAcct).name; renderCats(); $("cName").value = ""; $("cMsg").textContent = ""; $("dlgCats").showModal(); };
 $("cDone").onclick = () => $("dlgCats").close();
 $("cAdd").onclick = () => {
   const n = $("cName").value.trim();
   if (!n) return $("cMsg").textContent = "Enter a category name.";
   if (catByName(n)) return $("cMsg").textContent = "That category already exists.";
-  db.categories.push({id: uid(), name: n, type: $("cType").value, hidden: false});
+  addCat(n, $("cType").value);
   $("cName").value = ""; $("cMsg").textContent = ""; save(); renderCats(); renderLists();
 };
 
@@ -1020,7 +1082,7 @@ $("rcFinish").onclick = () => {
   if (rec.svc) addTx(-rec.svc, rec.svcDate, rec.svcCat, "Service Charge");
   if (rec.int) addTx(rec.int, rec.intDate, rec.intCat, "Interest");
   if (x.diff !== 0) {
-    if (!catByName("Reconciliation Discrepancies")) db.categories.push({id: uid(), name: "Reconciliation Discrepancies", type: "Expense", hidden: false});
+    if (!catByName("Reconciliation Discrepancies")) addCat("Reconciliation Discrepancies", "Expense");
     addTx(x.diff, rec.statementDate, "Reconciliation Discrepancies", "Reconciliation Adjustment");
   }
   const ids = [...x.dep, ...x.pay].map(t => t.id);
@@ -1257,7 +1319,7 @@ function qbCategory(name, amount, typeOf, created) {
   const pick = QB_CHOICES[leaf] || (amount > 0 ? QB_CHOICES_INCOME[leaf] : null);
   if (pick && catByName(pick)) return catByName(pick).id;
   const exact = catByName(name); if (exact) return exact.id;
-  const matches = db.categories.filter(c => c.name.split(":").pop().toLowerCase() === leaf.toLowerCase());
+  const matches = acctCats().filter(c => c.name.split(":").pop().toLowerCase() === leaf.toLowerCase());
   if (matches.length === 1) return matches[0].id;
   if (matches.length > 1) {
     const want = amount > 0 ? "Income" : "Expense";
@@ -1268,18 +1330,14 @@ function qbCategory(name, amount, typeOf, created) {
   const qt = typeOf[name] || "";
   const type = qt === "Income" ? "Income" : qt === "Expense" ? "Expense" : qt ? "Other"
     : /equity|liabilit|receivable|payable|asset|saving/i.test(name) ? "Other" : amount > 0 ? "Income" : "Expense";
-  const c = {id: uid(), name, type, hidden: false}; db.categories.push(c); created.push(name);
-  return c.id;
+  addCat(name, type); created.push(name);
+  return catByName(name).id;
 }
 
 $("impGo").onclick = () => {
   const typeOf = {}; (imp.cats || []).forEach(c => typeOf[c["Account"]] = c["Type"]);
   // Categories from the Account Listing that aren't in the checkbook yet
   const created = [];
-  (imp.cats || []).forEach(c => {
-    if (!["Income", "Expense"].includes(c["Type"]) || catByName(c["Account"])) return;
-    db.categories.push({id: uid(), name: c["Account"], type: c["Type"], hidden: false}); created.push(c["Account"]);
-  });
   const results = [];
   imp.banks.forEach((b, i) => {
     const choice = document.querySelector(`[data-imp="${i}"]`).value;
@@ -1287,6 +1345,11 @@ $("impGo").onclick = () => {
     let a = choice === "__new" ? null : acct(choice);
     if (!a) { a = {id: uid(), name: b, payees: []}; db.accounts.push(a); }
     a.payees = a.payees || [];
+    curAcct = a.id;   // categories below belong to this account only
+    (imp.cats || []).forEach(c => {
+      if (!["Income", "Expense"].includes(c["Type"]) || catByName(c["Account"])) return;
+      addCat(c["Account"], c["Type"]); created.push(c["Account"]);
+    });
     const have = new Set(db.transactions.filter(t => t.accountId === a.id && t.qbId).map(t => t.qbId));
     let added = 0, skipped = 0;
     for (const g of imp.groups) {
