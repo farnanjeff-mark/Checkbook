@@ -94,6 +94,9 @@ table.reg{width:100%;border-collapse:collapse}
 .startCard p{color:var(--muted);line-height:1.5;margin:0 0 20px}
 .startCard .btn{display:block;width:100%;text-align:left;padding:12px 16px;margin-bottom:10px;font-size:16px}
 .startCard small{display:block;color:var(--muted);font-size:13px;font-weight:400;margin-top:2px}
+.startCard .btn.primary,.startCard .btn.primary small{color:#fff}
+.startCard .btn.primary small{opacity:.9}
+#linkPick{display:block;margin-top:6px}
 #startErr{color:var(--red);margin-top:10px;line-height:1.4}
 dialog{border:1px solid var(--rule);border-radius:10px;padding:20px;max-width:560px;width:92vw;color:var(--ink)}
 dialog::backdrop{background:rgba(20,35,27,.45)}
@@ -193,6 +196,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
     <p>Your records are saved in a folder on this computer. Nothing is sent over the internet.</p>
     <button class="btn primary hidden" id="btnReopen">Open my checkbook<small id="reopenName"></small></button>
     <button class="btn" id="btnPick">Choose a folder<small>Pick your Checkbook folder, or an empty one to start new</small></button>
+    <button class="linkbtn hidden" id="linkPick">Use a different folder</button>
     <div id="startErr"></div>
   </div>
 </div>
@@ -582,10 +586,12 @@ window.addEventListener("beforeunload", e => { if (savePending) { e.preventDefau
   const h = await kvGet("dir");
   if (h && window.showDirectoryPicker) {
     $("btnReopen").classList.remove("hidden");
+    $("btnPick").classList.add("hidden"); $("linkPick").classList.remove("hidden");   // folder already known: keep it simple
     $("reopenName").textContent = "Folder: " + h.name;
     $("btnReopen").onclick = () => openFolder(h).catch(e => $("startErr").textContent = e.message);
   }
 })();
+$("linkPick").onclick = () => $("btnPick").onclick();
 $("btnPick").onclick = async () => {
   try { await openFolder(await showDirectoryPicker({mode: "readwrite", id: "checkbook"})); }
   catch (e) { if (e.name !== "AbortError") $("startErr").textContent = "Could not open that folder: " + e.message; }
