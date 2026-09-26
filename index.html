@@ -990,8 +990,8 @@ function recSummary() {
   $("rcSumRight").innerHTML = `<span>Statement ending balance</span><b>${money(rec.ending)}</b>
     <span>Cleared balance</span><b>${money(x.cleared)}</b>
     <span class="diff">Difference</span><b class="diff" style="color:${x.diff ? "var(--red)" : "var(--accent)"}">${money(x.diff)}</b>`;
-  $("rcFinish").disabled = x.diff !== 0;
-  $("rcFinish").title = x.diff ? "The difference must be 0.00 to finish" : "";
+  $("rcFinish").disabled = false;
+  $("rcFinish").textContent = x.diff ? "Reconcile now (with adjustment)" : "Reconcile now";
 }
 $("rcHide").onchange = renderRec;
 document.querySelectorAll("#dlgRec [data-mark],#dlgRec [data-unmark]").forEach(b => b.onclick = () => {
@@ -1009,7 +1009,8 @@ function jumpToTxn(id) {
 }
 
 $("rcFinish").onclick = () => {
-  const x = recTotals(); if (x.diff !== 0) return;
+  const x = recTotals();
+  if (x.diff !== 0 && !confirm(`Your cleared balance is off from the statement by ${money(x.diff)}.\n\nClick OK to enter an adjustment of ${money(x.diff)} to the category "Reconciliation Discrepancies" and finish.\n\nClick Cancel to go back and keep looking.`)) return;
   const a = acct(rec.accountId), rid = uid(), extra = [];
   const addTx = (amt, date, catName, payee) => {
     const c = catByName(catName), t = {id: uid(), accountId: a.id, seq: db.seq++, date, num: "", payee, memo: "From bank statement",
@@ -1018,10 +1019,14 @@ $("rcFinish").onclick = () => {
   };
   if (rec.svc) addTx(-rec.svc, rec.svcDate, rec.svcCat, "Service Charge");
   if (rec.int) addTx(rec.int, rec.intDate, rec.intCat, "Interest");
+  if (x.diff !== 0) {
+    if (!catByName("Reconciliation Discrepancies")) db.categories.push({id: uid(), name: "Reconciliation Discrepancies", type: "Expense", hidden: false});
+    addTx(x.diff, rec.statementDate, "Reconciliation Discrepancies", "Reconciliation Adjustment");
+  }
   const ids = [...x.dep, ...x.pay].map(t => t.id);
   [...x.dep, ...x.pay].forEach(t => { t.status = "R"; t.recId = rid; });
   const report = {id: rid, accountId: a.id, statementDate: rec.statementDate, finished: new Date().toISOString(),
-    beginning: x.begin, ending: rec.ending, depSum: x.depSum, paySum: x.paySum, svc: rec.svc, int: rec.int, items: [...ids, ...extra]};
+    beginning: x.begin, ending: rec.ending, depSum: x.depSum, paySum: x.paySum, svc: rec.svc, int: rec.int, adjustment: x.diff, items: [...ids, ...extra]};
   db.reconciles.push(report); delete db.recDrafts[a.id];
   save(); $("dlgRec").close(); renderAll(); showRecReport(report);
 };
@@ -1036,6 +1041,7 @@ function recReportHTML(r) {
     <table class="impTable"><tr><td>Beginning balance</td><td class="num">${money(r.beginning)}</td></tr>
       <tr><td>Checks and payments cleared (${pays.length})</td><td class="num">${money(-pays.reduce((s, t) => s - t.amount, 0))}</td></tr>
       <tr><td>Deposits and credits cleared (${deps.length})</td><td class="num">${money(deps.reduce((s, t) => s + t.amount, 0))}</td></tr>
+      ${r.adjustment ? `<tr><td>Includes a reconciliation adjustment of</td><td class="num">${money(r.adjustment)}</td></tr>` : ""}
       <tr><td><b>Ending balance</b></td><td class="num"><b>${money(r.ending)}</b></td></tr>
       <tr><td>Uncleared items on or before the statement date (${unc.length})</td><td class="num">${money(unc.reduce((s, t) => s + t.amount, 0))}</td></tr></table>
     <h4 style="margin:14px 0 4px">Cleared checks and payments</h4>
