@@ -34,6 +34,9 @@ input,select{font:inherit;color:var(--ink)}
 .sidebtn{background:none;border:1px solid rgba(255,255,255,.3);color:var(--sideink);border-radius:6px;padding:8px 12px;margin:4px 18px;text-align:left}
 .sidebtn:hover{background:var(--side2)}
 #saveStatus{font-size:12px;opacity:.75;padding:12px 18px 16px;line-height:1.4}
+#btnBackup small{display:block;font-size:12px;opacity:.8;margin-top:2px}
+#btnBackup.due{background:#F4D35E;border-color:#F4D35E;color:#3A2E00}
+#btnBackup.due small{opacity:1}
 
 #main{display:flex;flex-direction:column;min-width:0;min-height:0}
 #top{display:flex;align-items:flex-end;gap:24px;padding:18px 24px 12px;border-bottom:3px solid var(--accent);flex-wrap:wrap}
@@ -227,6 +230,7 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
     <button class="sidebtn" id="btnMemList">Memorized transactions</button>
     <button class="sidebtn" id="btnCats">Categories</button>
     <button class="sidebtn" id="btnImport">Import from QuickBooks</button>
+    <button class="sidebtn" id="btnBackup">Back up to cloud<small id="backupWhen"></small></button>
     <div id="saveStatus"></div>
   </aside>
 
@@ -419,6 +423,15 @@ dialog select{width:100%;padding:7px 8px;border:1px solid #BFCDB8;border-radius:
   </div>
   <div class="btns" style="margin-top:12px"><button class="btn primary" id="pyDone">Done</button></div>
 </dialog>
+<dialog id="dlgBackup" style="max-width:520px">
+  <h3>Back up to cloud</h3>
+  <div id="bkBody"></div>
+  <div id="bkMsg" style="color:var(--red);font-size:13px;min-height:1em;margin-top:6px"></div>
+  <div class="btns" style="justify-content:space-between;flex-wrap:wrap">
+    <button class="linkbtn" id="bkChange">Use a different backup folder</button>
+    <span><button class="btn" id="bkClose">Close</button> <button class="btn primary" id="bkGo">Back up now</button></span>
+  </div>
+</dialog>
 <dialog id="dlgMem" style="max-width:480px">
   <h3 id="mTitle">Memorize transaction</h3>
   <p class="impNote" id="mWhat"></p>
@@ -534,6 +547,7 @@ async function openFolder(handle) {
   db.accounts.sort((a, b) => a.name.localeCompare(b.name));
   db.seq = Math.max(1, ...db.transactions.map(t => t.seq || 0)) + 1;
   await kvSet("dir", handle);
+  lastBackup = await kvGet("lastBackup"); backupDir = await kvGet("backupDir");
   startApp();
 }
 function loadBook(data, file) {
@@ -670,7 +684,7 @@ function applyColor() {
   document.documentElement.style.setProperty("--side2", c2);
 }
 function renderSide() {
-  applyColor();
+  applyColor(); renderBackupBtn();
   $("acctList").innerHTML = db.accounts.map(a => {
     const b = balanceOf(a.id);
     return `<button class="acct ${a.id === curAcct ? "on" : ""}" data-id="${a.id}"><span class="n">${esc(a.name)}</span><span class="b ${b < 0 ? "neg" : ""}">${money(b)}</span></button>`;
@@ -1191,6 +1205,68 @@ $("btnMemList").onclick = () => {
   renderMemList(); $("dlgMemList").showModal();
 };
 $("mlDone").onclick = () => $("dlgMemList").close();
+
+/* ---------- Back up to cloud ----------
+   Your checkbook stays in its folder on this computer. This copies every account file into a
+   backup folder you pick once (for example one in iCloud Drive), in a new dated folder each day.
+   The button turns yellow when it's been more than 7 days. */
+const BACKUP_REMIND_DAYS = 7;
+let lastBackup = null, backupDir = null;
+function daysSince(iso) { return Math.floor((new Date(todayISO() + "T12:00:00") - new Date(iso + "T12:00:00")) / 86400000); }
+function renderBackupBtn() {
+  const b = $("btnBackup"); b.classList.toggle("hidden", sample);
+  const due = !lastBackup || daysSince(lastBackup) > BACKUP_REMIND_DAYS;
+  b.classList.toggle("due", due);
+  $("backupWhen").textContent = lastBackup ? "Last backup " + shortDate(lastBackup) + (due ? " (time for a new one)" : "") : "Not backed up yet";
+}
+function openBackup() {
+  $("bkMsg").textContent = "";
+  $("bkChange").classList.toggle("hidden", !backupDir);
+  $("bkBody").innerHTML = backupDir
+    ? `<p class="impNote">Your accounts will be copied to the folder <b>${esc(backupDir.name)}</b>, in a new folder named <b>Checkbook Backup ${todayISO()}</b>.</p>
+       <p class="impNote">${lastBackup ? "Last backup: " + shortDate(lastBackup) + "." : "You haven't backed up yet."}</p>`
+    : `<p class="impNote">Pick a folder to keep your backups in. For a cloud backup, pick a folder in <b>iCloud Drive</b>
+       (you can make a new one called "Checkbook Backups"). You only do this once.</p>
+       <p class="impNote">Don't pick your Checkbook folder itself. The backup needs to be somewhere else.</p>`;
+  $("bkGo").textContent = backupDir ? "Back up now" : "Choose backup folder";
+  if (!$("dlgBackup").open) $("dlgBackup").showModal();
+}
+async function pickBackupFolder() {
+  let h;
+  try { h = await showDirectoryPicker({mode: "readwrite", id: "checkbook-backup", startIn: "documents"}); }
+  catch (e) { return null; }   // cancelled
+  if (await dirHandle.isSameEntry(h) || await dirHandle.resolve(h)) {
+    $("bkMsg").textContent = "That's your Checkbook folder (or inside it). Pick a different folder, like one in iCloud Drive.";
+    return null;
+  }
+  backupDir = h; await kvSet("backupDir", h);
+  return h;
+}
+async function runBackup() {
+  const m = $("bkMsg"); m.textContent = "";
+  if (!backupDir && !(await pickBackupFolder())) return;
+  try {
+    if ((await backupDir.queryPermission({mode: "readwrite"})) !== "granted" &&
+        (await backupDir.requestPermission({mode: "readwrite"})) !== "granted") return m.textContent = "Permission to use the backup folder was not given.";
+    if (savePending) { clearTimeout(saveTimer); if (!(await writeNow())) return m.textContent = "Your checkbook couldn't be saved, so the backup was stopped."; }
+    const day = await backupDir.getDirectoryHandle(`Checkbook Backup ${todayISO()}`, {create: true});
+    for (const a of db.accounts) {
+      const w = await (await day.getFileHandle(a.file || fileNameFor(a.name, a), {create: true})).createWritable();
+      await w.write(JSON.stringify(bookFor(a), null, 1)); await w.close();
+    }
+    lastBackup = todayISO(); await kvSet("lastBackup", lastBackup);
+    renderBackupBtn();
+    $("bkBody").innerHTML = `<p class="impNote"><b>Backup finished.</b> ${db.accounts.length} account${db.accounts.length === 1 ? "" : "s"} copied to
+      <b>${esc(backupDir.name)} / Checkbook Backup ${todayISO()}</b>.</p>`;
+    $("bkGo").textContent = "Back up again"; $("bkChange").classList.remove("hidden");
+  } catch (e) {
+    m.textContent = "The backup didn't finish. Check that the backup folder still exists, or click \"Use a different backup folder\".";
+  }
+}
+$("btnBackup").onclick = openBackup;
+$("bkGo").onclick = runBackup;
+$("bkClose").onclick = () => $("dlgBackup").close();
+$("bkChange").onclick = async () => { if (await pickBackupFolder()) openBackup(); };
 
 /* ---------- Accounts ---------- */
 let renaming = false;
