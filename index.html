@@ -662,7 +662,8 @@ $("btnPick").onclick = async () => {
 function startApp() {
   $("start").classList.add("hidden");
   $("sampleBanner").classList.toggle("hidden", !sample);
-  curAcct = db.accounts[0]?.id || null;
+  // Always open on Farnan Farms (or the first account if there isn't one by that name)
+  curAcct = (db.accounts.find(a => a.name.trim().toLowerCase() === "farnan farms") || db.accounts[0])?.id || null;
   setStatus(sample ? "Nothing is saved" : "Saved");
   renderAll(); clearForm();
   requestAnimationFrame(() => { scrollToEnd(); if (db.accounts.length) $("fDate").focus(); });   // open at the newest entries, cursor on Date
